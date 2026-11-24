@@ -611,3 +611,5 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 .hero-poster .hero-image,.hero-poster .ep-art-fg{will-change:scale}
 .hero-poster .tile-initial{color:#ffffff1a}
 .hero-dots button.is-filling::after{will-change:transform}
+/* Rounded corners by overflow + radius again: with clip-path Firefox ran the zoom on the main thread (stutter). */
+.hero-poster,.hero-poster:hover{clip-path:none;overflow:hidden;border-radius:var(--radius-lg)}

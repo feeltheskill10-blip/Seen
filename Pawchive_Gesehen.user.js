@@ -2,7 +2,7 @@
 // @name         Pawchive – Gesehen markieren
 // @namespace    pawchive-seen-local
 // @icon         https://feeltheskill10-blip.github.io/Seen/icon-512.png
-// @version      2.19.0
+// @version      2.19.1
 // @downloadURL  https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @updateURL    https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @match        https://pawchive.pw/*
@@ -599,7 +599,7 @@ if(DASHBOARDS.includes(location.origin)){
       await new Promise(resolve=>setTimeout(resolve,400));
     }}finally{posterRunning=false}
   }
-  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.0');
+  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.1');
   document.addEventListener('paw-seen-request-v2',e=>{
     let m;try{if(typeof e.detail!=='string')return;m=JSON.parse(e.detail)}catch{return}
     if(m?.channel!==CHANNEL||m.direction!=='dashboard')return;
@@ -611,7 +611,7 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='GET_POSTERS'&&linked)queuePosters(m.names);
       if(m.type==='GET_IMDB'&&linked)queueImdb(m.names);
       if(m.type==='BACKUP_DONE'&&linked)GM_setValue(BACKUP_KEY,Date.now());
-      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.0'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
+      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.1'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
       if(m.type==='GET_FRAME_SETTINGS'){linked=true;publishFrameSettings(true,m.requestId)}
       if(m.type==='SET_FRAME_SETTINGS'&&linked){GM_setValue(FRAME_KEY,SeenFrames.normalize(m.settings));publishFrameSettings(true,m.requestId)}
       if(m.type==='ENRICH_IMAGES'&&linked){fillImages(true);fillCreators(true)}
@@ -619,7 +619,9 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='MERGE'&&linked){if(!Array.isArray(m.posts)||m.posts.length>50000)throw Error('Ungültige Sammlung');const rows=m.posts.map(safePost),known=new Set(GM_listValues());for(const p of rows){const old=GM_getValue(M+p.id,{});if(!known.has(P+p.id)||(Date.parse(p.updatedAt)||0)>(Date.parse(old.updatedAt)||0)){GM_setValue(M+p.id,{...old,...p});GM_setValue(P+p.id,p.seen)}}send('ACK',{requestId:m.requestId});publish(true)}
     }catch(err){send('ERROR',{requestId:m.requestId,message:err.message})}
   });
-  setInterval(()=>{publish();publishFrameSettings();publishFeeds();fillImages();fillCreators();fillFeeds()},2000);
+  // Feeds are sent after every write (and on HELLO); re-reading thousands of cached posts every 2 s stalled the
+  // dashboard's animations.
+  setInterval(()=>{publish();publishFrameSettings();fillImages();fillCreators();fillFeeds()},2000);
   return;
 }
 
