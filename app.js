@@ -248,7 +248,8 @@ function episodeArt(name){
 }
 // IMDb links per episode. The script looks up the show on TVmaze and the episode IDs on Wikidata;
 // without an exact ID the link falls back to the season page, then to an IMDb search.
-const IMDB_KEY='seen-imdb-v1',imdbAsked=new Set();let imdbData={};
+// v2: entries saved while an older script (without the "ended" info) was connected are dropped once.
+const IMDB_KEY='seen-imdb-v2',imdbAsked=new Set();let imdbData={};
 try{imdbData=JSON.parse(localStorage.getItem(IMDB_KEY)||'{}')||{}}catch{imdbData={}}
 function requestImdb(name){
  const k=posterKey(name),old=imdbData[k];
@@ -275,7 +276,8 @@ function imdbLinks(p,seriesName){
 window.addEventListener('seen-imdb',e=>{
  const {name,show,eps,ended,final}=e.detail||{};if(typeof name!=='string')return;const k=posterKey(name),wasEnded=!!imdbData[k]?.ended;
  const fin=final&&Number(final.s)>0&&Number(final.e)>0?{s:Number(final.s),e:Number(final.e)}:null;
- imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},ended:!!ended,final:fin,at:Date.now()};
+ // An older script sends no "ended" at all: keep the key out, so the series is asked again after a script update.
+ imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},...(typeof ended==='boolean'?{ended,final:fin}:{}),at:Date.now()};
  try{localStorage.setItem(IMDB_KEY,JSON.stringify(imdbData))}catch{}
  for(const a of document.querySelectorAll('a[data-imdb]'))if(a.dataset.imdb===k)a.href=imdbUrl(name,a.dataset.s,a.dataset.e);
  if(!!ended!==wasEnded)scheduleRender();
