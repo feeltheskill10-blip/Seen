@@ -402,9 +402,8 @@ function syncHeroBar(restart=false){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-hero-index]');if(b){heroIndex=+b.dataset.heroIndex;showHero()}});
 for(const [type,paused] of [['pointerenter',true],['pointerleave',false],['focusin',true],['focusout',false]])$('#hero').addEventListener(type,()=>{heroPaused=paused;syncHeroBar()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncHeroBar(true)});
-// The preview card leans toward the pointer and catches a light reflex.
-$('#hero').addEventListener('pointermove',e=>{const c=e.target.closest('.hero-poster');if(!c)return;const r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;c.style.setProperty('--ry',((x-.5)*12).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-y)*9).toFixed(2)+'deg');c.style.setProperty('--gx',(x*100).toFixed(1)+'%');c.style.setProperty('--gy',(y*100).toFixed(1)+'%')});
-$('#hero').addEventListener('pointerout',e=>{const c=e.target.closest?.('.hero-poster');if(c&&!c.contains(e.relatedTarget))for(const v of ['--rx','--ry'])c.style.removeProperty(v)});
+// The preview card's light reflex follows the pointer (no 3D tilt: Firefox clipped tilted rounded edges unevenly).
+$('#hero').addEventListener('pointermove',e=>{const c=e.target.closest('.hero-poster');if(!c)return;const r=c.getBoundingClientRect();c.style.setProperty('--gx',((e.clientX-r.left)/r.width*100).toFixed(1)+'%');c.style.setProperty('--gy',((e.clientY-r.top)/r.height*100).toFixed(1)+'%')});
 function renderHero(a,series=[]){
  const seen=a.filter(p=>p.seen),saved=a.filter(p=>p.saved),open=saved.filter(p=>!p.seen),creators=new Set(seen.map(keyOf)),week=seen.filter(p=>Date.parse(p.seenAt)>Date.now()-7*864e5).length;
  const latest=newest(seen,'seenAt')[0],hero=$('#hero');

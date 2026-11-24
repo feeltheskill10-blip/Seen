@@ -603,3 +603,11 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 /* Card edge: a quiet light outline; the green ring looked uneven along the tilted, floating bottom edge. */
 .hero-poster{box-shadow:0 0 0 1px #ffffff1f,0 40px 80px #000b}
 .hero-poster:hover{box-shadow:0 0 0 1px #ffffff38,0 0 50px #5ee08f1f,0 40px 80px #000b}
+/* Preview card, flat and GPU-friendly: dark background (a coloured one showed as thin lines at the rounded edges),
+   corners clipped by clip-path, the float and zoom run as composited transforms on their own layers. */
+.hero-poster,.hero-poster:hover{transform:none;background:#0b0b0e;clip-path:inset(0 round var(--radius-lg));will-change:translate;transition:scale .4s var(--ease)}
+.hero-poster,.hero-poster:hover{box-shadow:none}
+.hero-poster:hover{scale:1.02}
+.hero-poster .hero-image,.hero-poster .ep-art-fg{will-change:scale}
+.hero-poster .tile-initial{color:#ffffff1a}
+.hero-dots button.is-filling::after{will-change:transform}
