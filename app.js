@@ -228,9 +228,10 @@ window.addEventListener('seen-descriptions',e=>{
 document.addEventListener('click',e=>{const d=e.target.closest('.ep-desc');if(d){d.classList.toggle('is-open');d.setAttribute('aria-expanded',String(d.classList.contains('is-open')))}});
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList?.contains('ep-desc')){e.preventDefault();e.target.click()}});
 // Strips what the row already shows (series name, episode code, platform, "Reaction"),
-// so "Dr. Who Reaction 15x8 - The Reality War" becomes "The Reality War". Falls back to "Folge 8".
-function episodeTitle(p,seriesName){
- const parsed=parseEpisodes(p.title),fallback=parsed?'Folge '+parsed.eps.map(ep=>ep.e).join(' & '):p.title;
+// so "Dr. Who Reaction 15x8 - The Reality War" becomes "The Reality War". Without a real title it returns
+// `fallback` (where the episode code is shown anyway, pass '') or else the code itself, e.g. "15×8".
+function episodeTitle(p,seriesName,fallback){
+ if(fallback===undefined){const parsed=parseEpisodes(p.title);fallback=parsed?parsed.eps.map(ep=>epLabel(ep,ep.noSeason)).join(' & '):p.title}
  let t=String(p.title||'');
  if(seriesName)t=t.replace(new RegExp(seriesName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i'),' ');
  t=t.replace(EP_RE,' ')
@@ -382,18 +383,24 @@ function creatorTile(k,g){
  return `<a class="creator-tile" href="#creator/${encodeURIComponent(k)}" style="--h:${hue(p)}"><span class="creator-backdrop">${cover?image(cover,'thumbnail','creator-cover'):''}${image(banner,'banner','creator-banner')}</span><span class="creator-shade"></span>${avatar(p,'creator-avatar-sq')}<span class="creator-text"><span class="creator-badge" data-service="${esc(p.service)}">${esc(serviceName(p.service))}</span><strong>${esc(p.creator)}</strong><small><b>${g.length}</b> ${g.length===1?'Post':'Posts'} gesehen · zuletzt ${date(last.seenAt)}</small></span></a>`;
 }
 
-let heroIndex=0,heroCount=0,heroPaused=false,heroElapsed=0;const HERO_MS=9000;
-// The overview header rotates every 9 s of visible, unpaused time (hovered or focused pauses it; another view or a
-// hidden tab stops the clock). The active dash fills up over the same time.
-setInterval(()=>{if(heroCount<2||heroPaused||document.hidden||view!=='all'||activeCreator||activeSeries)return;heroElapsed+=250;if(heroElapsed>=HERO_MS){heroIndex=(heroIndex+1)%heroCount;showHero()}},250);
-function showHero(){const a=data(),h=$('#hero');heroElapsed=0;renderHero(a,buildSeries(a));h.classList.remove('is-switching');void h.offsetWidth;h.classList.add('is-switching')}
-// Keeps the filling dash in step with the clock: after re-renders, pauses and returning to the tab.
+let heroIndex=0,heroCount=0,heroPaused=false,heroStart=performance.now(),heroTick=performance.now(),lastHeroHtml='';const HERO_MS=9000;
+// The overview header rotates after 9 s of visible, unpaused time: while hovered/focused, hidden or on another view
+// the start time moves along, so the clock stands still. The active dash fills up (CSS) over exactly that time.
+const heroElapsed=()=>performance.now()-heroStart;
+setInterval(()=>{
+ const now=performance.now(),dt=now-heroTick;heroTick=now;
+ if(heroCount<2||heroPaused||document.hidden||view!=='all'||activeCreator||activeSeries){heroStart+=dt;return}
+ if(heroElapsed()>=HERO_MS){heroIndex=(heroIndex+1)%heroCount;showHero()}
+},100);
+function showHero(){const a=data(),h=$('#hero');heroStart=performance.now();renderHero(a,buildSeries(a));h.classList.remove('is-switching');void h.offsetWidth;h.classList.add('is-switching')}
+// Puts the filling dash at the clock's position: after a rebuild and when coming back to the tab.
 function syncHeroBar(restart=false){
- const h=$('#hero'),b=h.querySelector('.hero-dots [aria-selected=true]');h.classList.toggle('is-paused',heroPaused);if(!b)return;
- b.style.setProperty('--hero-delay',-heroElapsed+'ms');if(restart){b.classList.remove('is-filling');void b.offsetWidth}b.classList.add('is-filling');
+ // Pausing only toggles the class (CSS pauses the running fill); a changed delay would make it jump.
+ const h=$('#hero'),b=h.querySelector('.hero-dots [aria-selected=true]');h.classList.toggle('is-paused',heroPaused);if(!b||!restart)return;
+ b.style.setProperty('--hero-delay',-Math.round(heroElapsed())+'ms');b.classList.remove('is-filling');void b.offsetWidth;b.classList.add('is-filling');
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-hero-index]');if(b){heroIndex=+b.dataset.heroIndex;showHero()}});
-for(const [type,paused] of [['pointerenter',true],['pointerleave',false],['focusin',true],['focusout',false]])$('#hero').addEventListener(type,()=>{heroPaused=paused;syncHeroBar(!paused)});
+for(const [type,paused] of [['pointerenter',true],['pointerleave',false],['focusin',true],['focusout',false]])$('#hero').addEventListener(type,()=>{heroPaused=paused;syncHeroBar()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncHeroBar(true)});
 // The preview card leans toward the pointer and catches a light reflex.
 $('#hero').addEventListener('pointermove',e=>{const c=e.target.closest('.hero-poster');if(!c)return;const r=c.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;c.style.setProperty('--ry',((x-.5)*12).toFixed(2)+'deg');c.style.setProperty('--rx',((.5-y)*9).toFixed(2)+'deg');c.style.setProperty('--gx',(x*100).toFixed(1)+'%');c.style.setProperty('--gy',(y*100).toFixed(1)+'%')});
@@ -402,8 +409,7 @@ function renderHero(a,series=[]){
  const seen=a.filter(p=>p.seen),saved=a.filter(p=>p.saved),open=saved.filter(p=>!p.seen),creators=new Set(seen.map(keyOf)),week=seen.filter(p=>Date.parse(p.seenAt)>Date.now()-7*864e5).length;
  const latest=newest(seen,'seenAt')[0],hero=$('#hero');
  const chips=`<div class="hero-stats"><a href="#library"><b>${seen.length.toLocaleString('de-DE')}</b>gesehen</a><a href="#saved"><b>${open.length.toLocaleString('de-DE')}</b>auf der Merkliste</a><a href="#creators"><b>${creators.size.toLocaleString('de-DE')}</b>Creator</a>${week?`<span class="accent"><b>+${week}</b>diese Woche</span>`:''}</div>`;
- if(!latest){hero.className='hero hero-welcome';hero.innerHTML=`<div class="hero-backdrop"></div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Willkommen in deinem Space</span><h1>Deine Sammlung.<br>Alles im Blick.</h1><p class="hero-lead">Ein Ort für alles, was du auf Pawchive schon gesehen hast, und alles, was du dir noch ansehen möchtest.</p><div class="hero-actions"><button class="btn btn-light" data-open-setup>${icon('sync')}Auto-Sync verbinden</button><button class="btn btn-ghost" data-import>${icon('upload')}Backup importieren</button>${demoMode?'':`<button class="btn btn-ghost" data-demo>${icon('play')}Demo ansehen</button>`}</div>${a.length?chips:''}</div></div>`;return}
- hero.className='hero';
+ if(!latest){lastHeroHtml='';hero.className='hero hero-welcome';hero.innerHTML=`<div class="hero-backdrop"></div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Willkommen in deinem Space</span><h1>Deine Sammlung.<br>Alles im Blick.</h1><p class="hero-lead">Ein Ort für alles, was du auf Pawchive schon gesehen hast, und alles, was du dir noch ansehen möchtest.</p><div class="hero-actions"><button class="btn btn-light" data-open-setup>${icon('sync')}Auto-Sync verbinden</button><button class="btn btn-ghost" data-import>${icon('upload')}Backup importieren</button>${demoMode?'':`<button class="btn btn-ghost" data-demo>${icon('play')}Demo ansehen</button>`}</div>${a.length?chips:''}</div></div>`;return}
  // Next episodes of your running series, most recently watched first; the header rotates through them.
  const list=series.filter(s=>s.next.p&&s.last.p&&!seriesComplete(s)).sort((x,y)=>(Date.parse(y.last.p.seenAt)||0)-(Date.parse(x.last.p.seenAt)||0)).slice(0,6);
  heroCount=list.length;heroIndex%=Math.max(1,heroCount);
@@ -413,11 +419,14 @@ function renderHero(a,series=[]){
   // Wide TVmaze background when known (not on Claude, which blocks outside images); else the blurred thumbnail.
   const wide=!PROXY_ONLY&&imdbData[posterKey(cont.name)]?.backdrop;
   const dots=heroCount>1?`<div class="hero-dots" role="tablist" aria-label="Serien im Kopfbereich">${list.map((s,i)=>`<button role="tab" data-hero-index="${i}" aria-selected="${i===heroIndex}" aria-label="${esc(s.name)}" title="${esc(s.name)}"></button>`).join('')}</div>`:'';
-  hero.classList.toggle('has-wide',!!wide);
-  hero.innerHTML=`<div class="hero-backdrop" style="--h:${hue(cont.ref)}">${wide?`<img class="hero-wide" src="${esc(wide)}" alt="" decoding="async">`:image(p,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Als Nächstes · ${esc(code)}</span><h1>${esc(cont.name)}</h1><p class="hero-lead">${esc(episodeTitle(p,cont.name))} · zuletzt gesehen ${esc(epLabel(cont.last,cont.noSeason))} am ${date(cont.last.p.seenAt)}</p><div class="hero-creator">${avatar(cont.ref)}<a href="${creatorLink(cont.ref)}">${esc(cont.ref.creator)}</a><span class="service">${esc(cont.ref.service)}</span></div><div class="hero-actions">${p.url?`<a class="btn btn-light" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(p.id)}">${icon('check')}Gesehen</button><a class="btn btn-ghost" href="#serie/${encodeURIComponent(cont.key)}">Zur Serie</a></div>${chips}${dots}</div><${p.url?`a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(cont.name)} ${esc(code)} ansehen"`:'div'} class="hero-poster" style="--h:${hue(cont.ref)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(cont.name)}${image(p,'thumbnail','hero-image')}<span class="hero-play" aria-hidden="true">${icon('play')}</span><span class="hero-ep"><b>${esc(code)}</b><span>${esc(episodeTitle(p,cont.name))}</span></span></${p.url?'a':'div'}></div>`;
-  syncHeroBar();
+  // Only a real title next to the code ("10×9 The Holiday Summation"), never "Folge 9" again.
+  const title=episodeTitle(p,cont.name,'');
+  const html=`<div class="hero-backdrop" style="--h:${hue(cont.ref)}">${wide?`<img class="hero-wide" src="${esc(wide)}" alt="" decoding="async">`:image(p,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Als Nächstes · ${esc(code)}</span><h1>${esc(cont.name)}</h1><p class="hero-lead">${title?esc(title)+' · ':''}Zuletzt gesehen ${esc(epLabel(cont.last,cont.noSeason))} am ${date(cont.last.p.seenAt)}</p><div class="hero-creator">${avatar(cont.ref)}<a href="${creatorLink(cont.ref)}">${esc(cont.ref.creator)}</a><span class="service">${esc(cont.ref.service)}</span></div><div class="hero-actions">${p.url?`<a class="btn btn-light" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(p.id)}">${icon('check')}Gesehen</button><a class="btn btn-ghost" href="#serie/${encodeURIComponent(cont.key)}">Zur Serie</a></div>${chips}${dots}</div><${p.url?`a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(cont.name)} ${esc(code)} ansehen"`:'div'} class="hero-poster" style="--h:${hue(cont.ref)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(cont.name)}${image(p,'thumbnail','hero-image')}<span class="hero-play" aria-hidden="true">${icon('play')}</span><span class="hero-ep"><b>${esc(code)}</b>${title?`<span>${esc(title)}</span>`:''}</span></${p.url?'a':'div'}></div>`;
+  // Rebuild only when something changed: frequent data refreshes would otherwise restart the dash and animations.
+  if(html!==lastHeroHtml){lastHeroHtml=html;hero.className='hero'+(wide?' has-wide':'');hero.innerHTML=html;syncHeroBar(true)}else syncHeroBar();
   return;
  }
+ lastHeroHtml='';hero.className='hero';
  hero.innerHTML=`<div class="hero-backdrop" style="--h:${hue(latest)}">${image(latest,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Zuletzt gesehen · ${date(latest.seenAt)}</span><h1>${esc(latest.title)}</h1><div class="hero-creator">${avatar(latest)}<a href="${creatorLink(latest)}">${esc(latest.creator)}</a><span class="service">${esc(latest.service)}</span></div><div class="hero-actions">${latest.url?`<a class="btn btn-light" href="${esc(latest.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Post öffnen</a>`:''}<a class="btn btn-ghost" href="#history">${icon('clock')}Verlauf</a></div>${chips}</div><div class="hero-poster" style="--h:${hue(latest)}"><span class="tile-initial">${esc(initials(latest))}</span>${episodeArt(seriesByPost.get(latest.id))}${image(latest,'thumbnail','hero-image')}</div></div>`;
 }
 function row(eyebrow,title,link,items,cls='',extra=''){return `<section class="row ${cls}"><div class="row-head"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2></div><div class="row-nav">${extra}${link?`<a href="${link}">Alle ansehen<span aria-hidden="true">↗</span></a>`:''}<button class="row-btn" data-scroll="-1" aria-label="${title}: zurückblättern">${icon('left')}</button><button class="row-btn" data-scroll="1" aria-label="${title}: weiterblättern">${icon('right')}</button></div></div><div class="row-track" tabindex="-1">${items}</div></section>`}

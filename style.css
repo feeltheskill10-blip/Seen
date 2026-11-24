@@ -600,3 +600,6 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 @keyframes hero-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 @media(prefers-reduced-motion:reduce){.hero-poster,.hero-poster .hero-image,.hero-poster .ep-art-fg,.hero-play::before{animation:none}.hero-dots button.is-filling::after{animation:none;transform:none}}
 @media (max-width:900px){.hero-poster,.hero-poster:hover{transform:none}}
+/* Card edge: a quiet light outline; the green ring looked uneven along the tilted, floating bottom edge. */
+.hero-poster{box-shadow:0 0 0 1px #ffffff1f,0 40px 80px #000b}
+.hero-poster:hover{box-shadow:0 0 0 1px #ffffff38,0 0 50px #5ee08f1f,0 40px 80px #000b}
