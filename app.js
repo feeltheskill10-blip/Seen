@@ -39,7 +39,7 @@ const hue=p=>{let h=0;for(const c of keyOf(p))h=(h*31+c.charCodeAt(0))>>>0;retur
 const PROXY_ONLY=/\.claudeusercontent\.com$/.test(location.hostname);
 const imgCache=new Map(),imgFailed=new Set(),imgPending=new Set(),imgQueue=new Set();let imgTimer=0,idb=null;
 const idbReady=new Promise(done=>{try{const r=indexedDB.open('seen-images',1);r.onupgradeneeded=()=>r.result.createObjectStore('img');r.onsuccess=()=>{idb=r.result;done()};r.onerror=()=>done()}catch{done()}});
-// One-time cleanup once script 2.18.0+ is connected: older scripts could relay images black (canvas blocked in Firefox).
+// One-time cleanup once script 2.19.0+ is connected: older scripts could relay images black (canvas blocked in Firefox).
 // Everything cached is dropped and fetched again through the fixed relay.
 window.addEventListener('seen-script-ready',e=>{
  const v=String(e.detail).split('.').map(Number);if(!(v[0]>2||v[0]===2&&(v[1]>16||v[1]===16&&(v[2]||0)>=3)))return;
@@ -255,8 +255,8 @@ try{imdbData=JSON.parse(localStorage.getItem(IMDB_KEY)||'{}')||{}}catch{imdbData
 function requestImdb(name){
  const k=posterKey(name),old=imdbData[k];
  // Full episode lists are kept 7 days; an empty answer is asked again after a day.
- // Entries from before 2.18 lack the "ended" info and are asked again.
- if(demoMode||imdbAsked.has(k)||(old&&'ended' in old&&Date.now()-(old.at||0)<(Object.keys(old.eps||{}).length?7:1)*864e5))return;
+ // Entries from older scripts lack the "ended" (2.18) or "backdrop" (2.19) info and are asked again.
+ if(demoMode||imdbAsked.has(k)||(old&&'ended' in old&&'backdrop' in old&&Date.now()-(old.at||0)<(Object.keys(old.eps||{}).length?7:1)*864e5))return;
  // Sent after startup: the first render runs before sync.js listens, so a direct event would be lost.
  imdbAsked.add(k);const ask=()=>window.dispatchEvent(new CustomEvent('seen-imdb-request',{detail:[name]}));
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ask,{once:true});else ask();
@@ -275,10 +275,12 @@ function imdbLinks(p,seriesName){
  return `<span class="ep-imdb">${one?link(eps[0],logo,'imdb-main'):logo+eps.map(ep=>link(ep,String(ep.e),'imdb-ep')).join('')}</span>`;
 }
 window.addEventListener('seen-imdb',e=>{
- const {name,show,eps,ended,final}=e.detail||{};if(typeof name!=='string')return;const k=posterKey(name),wasEnded=!!imdbData[k]?.ended;
+ const {name,show,eps,ended,final,backdrop}=e.detail||{};if(typeof name!=='string')return;const k=posterKey(name),wasEnded=!!imdbData[k]?.ended,hadBackdrop=!!imdbData[k]?.backdrop;
  const fin=final&&Number(final.s)>0&&Number(final.e)>0?{s:Number(final.s),e:Number(final.e)}:null;
- // An older script sends no "ended" at all: keep the key out, so the series is asked again after a script update.
- imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},...(typeof ended==='boolean'?{ended,final:fin}:{}),at:Date.now()};
+ const wide=typeof backdrop==='string'&&/^https:\/\/([\w-]+\.)*tvmaze\.com\//.test(backdrop)?backdrop:'';
+ // An older script sends no "ended"/"backdrop" at all: keep the keys out, so the series is asked again after a script update.
+ imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},...(typeof ended==='boolean'?{ended,final:fin}:{}),...(typeof backdrop==='string'?{backdrop:wide}:{}),at:Date.now()};
+ if(!!wide!==hadBackdrop&&view==='all'&&!activeCreator&&!activeSeries)scheduleRender();
  try{localStorage.setItem(IMDB_KEY,JSON.stringify(imdbData))}catch{}
  for(const a of document.querySelectorAll('a[data-imdb]'))if(a.dataset.imdb===k)a.href=imdbUrl(name,a.dataset.s,a.dataset.e);
  if(!!ended!==wasEnded)scheduleRender();
@@ -380,17 +382,30 @@ function creatorTile(k,g){
  return `<a class="creator-tile" href="#creator/${encodeURIComponent(k)}" style="--h:${hue(p)}"><span class="creator-backdrop">${cover?image(cover,'thumbnail','creator-cover'):''}${image(banner,'banner','creator-banner')}</span><span class="creator-shade"></span>${avatar(p,'creator-avatar-sq')}<span class="creator-text"><span class="creator-badge" data-service="${esc(p.service)}">${esc(serviceName(p.service))}</span><strong>${esc(p.creator)}</strong><small><b>${g.length}</b> ${g.length===1?'Post':'Posts'} gesehen · zuletzt ${date(last.seenAt)}</small></span></a>`;
 }
 
+let heroIndex=0,heroCount=0,heroPaused=false,heroShownAt=Date.now();
+// The overview header rotates every 9 s (counted from the last switch, also a manual one); paused while hovered
+// or focused, the tab is hidden, or another view is open.
+setInterval(()=>{if(heroCount<2||heroPaused||document.hidden||view!=='all'||activeCreator||activeSeries||Date.now()-heroShownAt<9000)return;heroIndex=(heroIndex+1)%heroCount;showHero()},1000);
+function showHero(){const a=data(),h=$('#hero');heroShownAt=Date.now();renderHero(a,buildSeries(a));h.classList.remove('is-switching');void h.offsetWidth;h.classList.add('is-switching')}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-hero-index]');if(b){heroIndex=+b.dataset.heroIndex;showHero()}});
+for(const [type,paused] of [['pointerenter',true],['pointerleave',false],['focusin',true],['focusout',false]])$('#hero').addEventListener(type,()=>{heroPaused=paused});
 function renderHero(a,series=[]){
  const seen=a.filter(p=>p.seen),saved=a.filter(p=>p.saved),open=saved.filter(p=>!p.seen),creators=new Set(seen.map(keyOf)),week=seen.filter(p=>Date.parse(p.seenAt)>Date.now()-7*864e5).length;
  const latest=newest(seen,'seenAt')[0],hero=$('#hero');
  const chips=`<div class="hero-stats"><a href="#library"><b>${seen.length.toLocaleString('de-DE')}</b>gesehen</a><a href="#saved"><b>${open.length.toLocaleString('de-DE')}</b>auf der Merkliste</a><a href="#creators"><b>${creators.size.toLocaleString('de-DE')}</b>Creator</a>${week?`<span class="accent"><b>+${week}</b>diese Woche</span>`:''}</div>`;
  if(!latest){hero.className='hero hero-welcome';hero.innerHTML=`<div class="hero-backdrop"></div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Willkommen in deinem Space</span><h1>Deine Sammlung.<br>Alles im Blick.</h1><p class="hero-lead">Ein Ort für alles, was du auf Pawchive schon gesehen hast, und alles, was du dir noch ansehen möchtest.</p><div class="hero-actions"><button class="btn btn-light" data-open-setup>${icon('sync')}Auto-Sync verbinden</button><button class="btn btn-ghost" data-import>${icon('upload')}Backup importieren</button>${demoMode?'':`<button class="btn btn-ghost" data-demo>${icon('play')}Demo ansehen</button>`}</div>${a.length?chips:''}</div></div>`;return}
  hero.className='hero';
- // Next episode of the series you watched most recently; falls back to your last seen post.
- const cont=series.filter(s=>s.next.p&&s.last.p).sort((x,y)=>(Date.parse(y.last.p.seenAt)||0)-(Date.parse(x.last.p.seenAt)||0))[0];
+ // Next episodes of your running series, most recently watched first; the header rotates through them.
+ const list=series.filter(s=>s.next.p&&s.last.p&&!seriesComplete(s)).sort((x,y)=>(Date.parse(y.last.p.seenAt)||0)-(Date.parse(x.last.p.seenAt)||0)).slice(0,6);
+ heroCount=list.length;heroIndex%=Math.max(1,heroCount);
+ const cont=list[heroIndex];
  if(cont){
   const p=cont.next.p,code=postEpisodes(p,cont.noSeason)||epLabel(cont.next,cont.noSeason);
-  hero.innerHTML=`<div class="hero-backdrop" style="--h:${hue(cont.ref)}">${image(p,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Als Nächstes · ${esc(code)}</span><h1>${esc(cont.name)}</h1><p class="hero-lead">${esc(episodeTitle(p,cont.name))} · zuletzt gesehen ${esc(epLabel(cont.last,cont.noSeason))} am ${date(cont.last.p.seenAt)}</p><div class="hero-creator">${avatar(cont.ref)}<a href="${creatorLink(cont.ref)}">${esc(cont.ref.creator)}</a><span class="service">${esc(cont.ref.service)}</span></div><div class="hero-actions">${p.url?`<a class="btn btn-light" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(p.id)}">${icon('check')}Gesehen</button><a class="btn btn-ghost" href="#serie/${encodeURIComponent(cont.key)}">Zur Serie</a></div>${chips}</div><div class="hero-poster" style="--h:${hue(cont.ref)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(cont.name)}${image(p,'thumbnail','hero-image')}</div></div>`;
+  // Wide TVmaze background when known (not on Claude, which blocks outside images); else the blurred thumbnail.
+  const wide=!PROXY_ONLY&&imdbData[posterKey(cont.name)]?.backdrop;
+  const dots=heroCount>1?`<div class="hero-dots" role="tablist" aria-label="Serien im Kopfbereich">${list.map((s,i)=>`<button role="tab" data-hero-index="${i}" aria-selected="${i===heroIndex}" aria-label="${esc(s.name)}" title="${esc(s.name)}"></button>`).join('')}</div>`:'';
+  hero.classList.toggle('has-wide',!!wide);
+  hero.innerHTML=`<div class="hero-backdrop" style="--h:${hue(cont.ref)}">${wide?`<img class="hero-wide" src="${esc(wide)}" alt="" decoding="async">`:image(p,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Als Nächstes · ${esc(code)}</span><h1>${esc(cont.name)}</h1><p class="hero-lead">${esc(episodeTitle(p,cont.name))} · zuletzt gesehen ${esc(epLabel(cont.last,cont.noSeason))} am ${date(cont.last.p.seenAt)}</p><div class="hero-creator">${avatar(cont.ref)}<a href="${creatorLink(cont.ref)}">${esc(cont.ref.creator)}</a><span class="service">${esc(cont.ref.service)}</span></div><div class="hero-actions">${p.url?`<a class="btn btn-light" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(p.id)}">${icon('check')}Gesehen</button><a class="btn btn-ghost" href="#serie/${encodeURIComponent(cont.key)}">Zur Serie</a></div>${chips}${dots}</div><div class="hero-poster" style="--h:${hue(cont.ref)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(cont.name)}${image(p,'thumbnail','hero-image')}</div></div>`;
   return;
  }
  hero.innerHTML=`<div class="hero-backdrop" style="--h:${hue(latest)}">${image(latest,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Zuletzt gesehen · ${date(latest.seenAt)}</span><h1>${esc(latest.title)}</h1><div class="hero-creator">${avatar(latest)}<a href="${creatorLink(latest)}">${esc(latest.creator)}</a><span class="service">${esc(latest.service)}</span></div><div class="hero-actions">${latest.url?`<a class="btn btn-light" href="${esc(latest.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Post öffnen</a>`:''}<a class="btn btn-ghost" href="#history">${icon('clock')}Verlauf</a></div>${chips}</div><div class="hero-poster" style="--h:${hue(latest)}"><span class="tile-initial">${esc(initials(latest))}</span>${episodeArt(seriesByPost.get(latest.id))}${image(latest,'thumbnail','hero-image')}</div></div>`;
@@ -398,7 +413,7 @@ function renderHero(a,series=[]){
 function row(eyebrow,title,link,items,cls='',extra=''){return `<section class="row ${cls}"><div class="row-head"><div><span class="eyebrow">${eyebrow}</span><h2>${title}</h2></div><div class="row-nav">${extra}${link?`<a href="${link}">Alle ansehen<span aria-hidden="true">↗</span></a>`:''}<button class="row-btn" data-scroll="-1" aria-label="${title}: zurückblättern">${icon('left')}</button><button class="row-btn" data-scroll="1" aria-label="${title}: weiterblättern">${icon('right')}</button></div></div><div class="row-track" tabindex="-1">${items}</div></section>`}
 function renderRows(a,series){
  // Order: recently watched, continue series, watch list (only when it has entries), creators.
- const seen=a.filter(p=>p.seen),open=newest(a.filter(p=>p.saved&&!p.seen)).slice(0,14),recent=newest(seen,'seenAt').slice(series.some(s=>s.next.p&&s.last.p)?0:1).slice(0,14),groups=[...groupCreators(seen)].sort((x,y)=>y[1].length-x[1].length).slice(0,14);
+ const seen=a.filter(p=>p.seen),open=newest(a.filter(p=>p.saved&&!p.seen)).slice(0,14),recent=newest(seen,'seenAt').slice(series.some(s=>s.next.p&&s.last.p&&!seriesComplete(s))?0:1).slice(0,14),groups=[...groupCreators(seen)].sort((x,y)=>y[1].length-x[1].length).slice(0,14);
  if(!a.length){$('#rows').innerHTML='';return}
  let html='';
  if(recent.length)html+=row('Dein Rückblick','Zuletzt gesehen','#library',recent.map(p=>tile(p)).join(''));
@@ -543,7 +558,7 @@ if(PROXY_ONLY){$('#backup').hidden=true;$('#backupSetup').hidden=true}
 $('#backup').onclick=()=>{const blob=new Blob([backupJSON()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=demoMode?'seen-demo.json':'seen-backup.json';a.click();backupDone();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 $('#addForm').onsubmit=e=>{e.preventDefault();if(demoMode){toast('Bitte zuerst die Demo schließen.');return}const f=new FormData(e.target),info=urlInfo(f.get('url'));if(!info){toast('Bitte eine gültige Pawchive-Post-URL verwenden.');return}const old=posts.find(p=>p.id===info.id),p={...old,...info,title:f.get('title').trim()||`Post ${info.postId}`,creator:f.get('creator').trim()||`Creator ${info.creatorId}`,seen:f.has('seen'),saved:!f.has('seen'),updatedAt:new Date().toISOString(),seenAt:f.has('seen')?new Date().toISOString():null};posts=posts.filter(x=>x.id!==p.id).concat(p);save();window.dispatchEvent(new CustomEvent('seen-local-change',{detail:p}));e.target.reset();$('#add').close();render();toast('Post gespeichert')};
 
-let script='';fetch('Pawchive_Gesehen.user.js?v=2.18.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
+let script='';fetch('Pawchive_Gesehen.user.js?v=2.19.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
 // Script update: the connected script's version (sent on READY) against the one published next to this dashboard.
 let connectedVersion='';
 const olderVersion=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++)if((x[i]||0)!==(y[i]||0))return (x[i]||0)<(y[i]||0);return false};
