@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seen.</title><meta name="description" content="Dein privater Überblick über gesehene Posts, Lieblingscreator und alles für später."><meta name="theme-color" content="#09090b"><link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png"><link rel="icon" href="icon-512.png" sizes="512x512" type="image/png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="stylesheet" href="style.css?v=cinema49"></head><body>
+<a class="skip-link" href="#mainContent">Zum Inhalt</a>
+<header class="topbar">
+ <a class="brand" href="#" aria-label="Seen Startseite"><span>seen<span class="brand-dot">.</span></span></a>
+ <nav class="mainnav" aria-label="Hauptnavigation">
+  <button data-view="all" class="active">Übersicht</button>
+  <button data-view="library">Mediathek <small id="navCount">0</small></button>
+  <button data-view="saved">Merkliste <small id="savedCount">0</small></button>
+  <button data-view="series">Serien <small id="seriesCount">0</small></button>
+  <button data-view="creators">Creator</button>
+  <button data-view="history">Verlauf</button>
+ </nav>
+ <div class="top-actions">
+  <button id="searchJump" class="icon-btn" aria-label="Suchen (Taste /)" title="Suchen (Taste /)"><span data-icon="search"></span></button>
+  <button id="setupStatus" class="sync-pill" title="Synchronisierung einrichten"><span id="syncStatus" role="status">○ Auto-Sync einrichten</span></button>
+  <details class="more" id="moreMenu"><summary class="icon-btn" aria-label="Weitere Aktionen" title="Weitere Aktionen"><span data-icon="dots"></span></summary>
+   <div class="menu-panel">
+    <button id="addOpen"><span data-icon="plus"></span>Post hinzufügen</button>
+    <button id="importTop"><span data-icon="upload"></span>Backup importieren</button>
+    <button id="backup"><span data-icon="download"></span>Backup exportieren</button>
+    <button id="backupCopy"><span data-icon="copy"></span>Backup kopieren</button>
+    <hr>
+    <button id="updateScript" class="menu-update" hidden><span data-icon="download"></span><span id="updateLabel">Skript-Update</span></button>
+    <button id="setupOpen"><span data-icon="sync"></span>Auto-Sync &amp; Skript</button>
+    <button id="frameSettingsOpen"><span data-icon="frame"></span>Rahmen gestalten</button>
+    <hr>
+    <button id="demo"><span data-icon="play"></span>Demo ansehen</button>
+    <p class="menu-note"><span data-icon="shield"></span>Deine Sammlung bleibt in diesem Browser.</p>
+   </div>
+  </details>
+ </div>
+</header>
+<div id="demoBanner" hidden><span><b>Demo-Modus.</b><span class="demo-text"> Du siehst Beispieldaten, deine Sammlung bleibt unverändert.</span></span><button id="exitDemo">Demo schließen ×</button></div>
+<main id="mainContent">
+ <section id="home" aria-label="Übersicht">
+  <div id="hero" class="hero"></div>
+  <div id="rows" class="rows"></div>
+ </section>
+ <section id="browse" hidden>
+  <a href="#creators" class="creator-back" id="creatorBack" hidden>← Alle Creator</a>
+  <div class="browse-head">
+   <div id="detailAvatar" class="detail-avatar" hidden></div>
+   <div class="browse-title"><span class="eyebrow" id="pageEyebrow"></span><h1 id="pageTitle">Mediathek</h1><p id="pageDescription"></p><a id="creatorOrigin" class="origin-link" target="_blank" rel="noopener noreferrer" hidden></a></div>
+   <span id="resultCount" class="count-chip">0 Posts</span>
+  </div>
+  <div id="creatorExtra" hidden></div>
+  <div class="tools">
+   <label class="search"><span data-icon="search"></span><input id="search" placeholder="Posts oder Creator suchen …" aria-label="Posts oder Creator suchen"><kbd>/</kbd></label>
+   <select id="creatorFilter" aria-label="Nach Creator filtern"><option value="">Alle Creator</option></select>
+   <select id="sort" aria-label="Sortierung"><option value="new">Neueste zuerst</option><option value="old">Älteste zuerst</option><option value="title">Titel A–Z</option></select>
+   <div id="statusFilters" class="segmented" hidden><button data-status="all" class="selected">Alle</button><button data-status="unseen">Noch offen</button><button data-status="seen">Gesehen</button></div>
+   <button id="layout" class="icon-btn" title="Zur Listenansicht wechseln" aria-label="Zur Listenansicht wechseln" aria-pressed="false"><span data-icon="list"></span></button>
+  </div>
+  <div id="content"></div>
+ </section>
+ <footer><span class="footer-brand">seen<span>.</span></span><span>Weniger suchen. Mehr wiederfinden.</span><span class="footer-meta"><span class="status-dot"></span>Lokal gespeichert · SEEN / 4.0</span></footer>
+</main>
+<input type="file" id="file" accept="application/json,.json" hidden><div id="toast" role="status" aria-live="polite"></div>
+<dialog id="setup"><button class="close" data-close aria-label="Schließen">×</button><div class="eyebrow">VERBINDE DEINE SAMMLUNG</div><h2>Von Pawchive zu seen.</h2><div class="sync-status"><span class="eyebrow">Status</span><p id="imageStatus" role="status">Fehlende Bilder werden bei verbundenem Skript automatisch ergänzt.</p><p id="creatorStatus" role="status"></p><p id="relayStatus" role="status"></p><button id="refreshImages"><span data-icon="sync"></span>Bilder &amp; Creator jetzt nachladen</button></div><p>Skript-Version 2.17.0 verbindet Pawchive mit deiner Mediathek und bringt die Rahmen-Einstellungen mit. Ersetze den Code deines bestehenden Violentmonkey-Skripts und lade beide Seiten neu. Verwende beide Seiten im selben Browser und Violentmonkey-Profil. Deine im Skript gespeicherten Markierungen bleiben erhalten.</p><ol><li><b>Skript aktualisieren</b><p>Öffne dein bestehendes Violentmonkey-Skript und ersetze den gesamten Code. Name und Speicher bleiben gleich.</p><div class="dialog-actions"><button id="copyScript" class="primary">Vollständigen Code kopieren</button><a href="Pawchive_Gesehen.user.js" download>Skript herunterladen</a></div><details><summary>Code anzeigen / manuell kopieren</summary><textarea id="scriptCode" readonly aria-label="Vollständiger Userscript-Code"></textarea></details></li><li><b>Beide Seiten neu laden</b><p>Speichere das Skript, bestätige gegebenenfalls die Website-Berechtigung in Violentmonkey und lade Pawchive und dieses Dashboard neu. Oben erscheint „Auto-Sync verbunden“. Öffne das Dashboard direkt über seine Adresse, nicht in einer eingebetteten Vorschau.</p></li><li><b>Optional: Backup &amp; Rahmen</b><p>Manuelle JSON-Backups funktionieren weiterhin. Bei aktivem Auto-Sync werden importierte Änderungen mit dem Skript abgeglichen.</p><div class="dialog-actions"><button id="frameSettingsSetup">Rahmen gestalten</button><button id="importSetup">JSON-Datei auswählen</button><button id="backupSetup">Backup exportieren</button><button id="backupCopySetup">Backup kopieren</button></div></li></ol><p class="note">Ältere Markierungen enthalten zunächst nur IDs. Fehlende Titel und Vorschaubilder werden im Hintergrund von den gespeicherten Post-Seiten geladen; erlaube dafür die Pawchive-Verbindung, falls Violentmonkey fragt. Auto-Sync funktioniert innerhalb desselben Browserprofils, nicht zwischen Geräten. Sichere deine Sammlung regelmäßig als Backup.</p></dialog>
+<dialog id="backupDialog"><button class="close" data-close aria-label="Schließen">×</button><div class="eyebrow">BACKUP</div><h2>Backup kopieren</h2><p>Kopiere den markierten Text mit Strg+C, füge ihn in eine Textdatei ein und speichere sie mit der Endung .json. Über „Backup importieren“ holst du ihn später zurück.</p><textarea id="backupText" readonly aria-label="Backup als Text"></textarea></dialog>
+<dialog id="add"><button class="close" data-close aria-label="Schließen">×</button><div class="eyebrow">FÜR DEINE SAMMLUNG</div><h2>Post hinzufügen</h2><form id="addForm"><label>Post-URL<input name="url" type="url" placeholder="https://pawchive.pw/patreon/user/…/post/…" required></label><label>Titel<input name="title" placeholder="Wie heißt der Post?" required maxlength="250"></label><label>Creator<input name="creator" placeholder="Name des Creators" maxlength="100"></label><label class="check"><input name="seen" type="checkbox" checked> Bereits gesehen</label><button class="primary">Zur Mediathek hinzufügen</button></form></dialog>
+
+<script src="frame-design.js?v=2100"></script><script src="app.js?v=cinema49"></script><script src="sync.js?v=cinema49"></script><script src="frame-dashboard.js?v=2100"></script></body></html>
