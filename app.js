@@ -165,7 +165,8 @@ function searchNote(s,side=false){
 }
 function requestSeriesSearch(series){
  if(demoMode)return;
- const queries=series.filter(s=>!s.next.p||s.jump||s.startsLate||s.gaps.some(g=>!g.p)).map(s=>({creator:keyOf(s.ref),name:s.name})),signature=JSON.stringify(queries);
+ // Finished series need no search for a "next" episode that doesn't exist.
+ const queries=series.filter(s=>(!s.next.p||s.jump||s.startsLate||s.gaps.some(g=>!g.p))&&!seriesComplete(s)).map(s=>({creator:keyOf(s.ref),name:s.name})),signature=JSON.stringify(queries);
  if(!queries.length||signature===lastSeriesSearch)return;
  lastSeriesSearch=signature;window.dispatchEvent(new CustomEvent('seen-series-search',{detail:queries}));
 }
@@ -322,14 +323,16 @@ function seasonList(s){const seasons=new Map();for(const ep of s.eps.values()){i
 // Sticky side panel: cover, next episode, progress per season, gaps.
 function seriesSide(s){
  const nextLabel=epLabel(s.next,s.noSeason),seasons=seasonList(s),total=s.total,pct=total?Math.round(s.seenCount/total*100):0,open=total-s.seenCount;
- const cta=s.next.p?`<div class="side-next"><span class="eyebrow">Als Nächstes</span><strong>${esc(nextLabel)}</strong><div class="side-actions">${s.next.p.url?`<a class="btn btn-light" href="${esc(s.next.p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(s.next.p.id)}">${icon('check')}Gesehen</button></div><button class="side-link" data-jump-current>Zur Folge in der Liste ↓</button></div>`
+ const complete=seriesComplete(s);
+ const cta=complete?`<div class="side-next is-complete"><span class="eyebrow">Geschafft</span><strong>Komplett gesehen</strong><p>Alle ${total} Folgen bis zum Finale ${esc(epLabel(s.last,s.noSeason))}.</p><button class="side-link" data-jump-current>Zum Finale ↓</button></div>`
+  :s.next.p?`<div class="side-next"><span class="eyebrow">Als Nächstes</span><strong>${esc(nextLabel)}</strong><div class="side-actions">${s.next.p.url?`<a class="btn btn-light" href="${esc(s.next.p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(s.next.p.id)}">${icon('check')}Gesehen</button></div><button class="side-link" data-jump-current>Zur Folge in der Liste ↓</button></div>`
   :`<div class="side-next is-missing"><span class="eyebrow">Als Nächstes</span><strong>${esc(nextLabel)}</strong><p>Noch nicht auf Pawchive gefunden.</p><button class="side-link" data-jump-current>Zur letzten Folge ↓</button></div>`;
  return `<aside class="series-side" aria-label="Serienübersicht"><div class="side-head"><div class="side-poster" style="--h:${hue(s.ref)}">${seriesCover(s)}</div><div class="side-title"><span class="eyebrow">Serie</span><strong>${esc(s.name)}</strong><span>${esc(s.ref.creator)}</span></div></div>
 ${cta}
 <div class="side-block"><div class="side-progress-head"><span>Fortschritt</span><b>${s.seenCount} / ${total}</b></div><div class="side-bar"><i style="width:${pct}%"></i></div><div class="side-stats"><span><b>${open}</b> offen</span><span>zuletzt ${esc(epLabel(s.last,s.noSeason))}</span>${s.gaps.length?`<span class="warn"><b>${s.gaps.length}</b> ${s.gaps.length===1?'Lücke':'Lücken'}</span>`:''}</div></div>
 ${seasons.length>1||!s.noSeason?`<div class="side-block"><span class="eyebrow">Staffeln</span><div class="side-seasons">${seasons.map(x=>{const count=x.max-x.min+1,w=Math.round(x.seen/count*100);return `<button class="side-season${x.seen>=count?' done':''}" data-season="${x.sn}"><span>${s.noSeason?'Folgen':'Staffel '+x.sn}</span><span class="side-season-bar"><i style="width:${w}%"></i></span><b>${x.seen}/${count}</b></button>`}).join('')}</div></div>`:''}
 ${s.gaps.length?`<div class="side-block"><span class="eyebrow">Übersprungen</span><div class="chips">${s.gaps.slice(0,10).map(g=>`<span class="chip chip-gap">${esc(epLabel(g,s.noSeason))}</span>`).join('')}${s.gaps.length>10?`<span class="chip">+${s.gaps.length-10}</span>`:''}</div></div>`:''}
-<div class="side-block side-search"><span class="eyebrow">Folgen auf Pawchive</span>${searchNote(s,true)}</div>
+${complete?'':`<div class="side-block side-search"><span class="eyebrow">Folgen auf Pawchive</span>${searchNote(s,true)}</div>`}
 <a class="side-creator" href="${creatorLink(s.ref)}">${avatar(s.ref)}<span>${esc(s.ref.creator)}</span><span aria-hidden="true">↗</span></a></aside>`;
 }
 function seriesDetail(s){
@@ -343,8 +346,9 @@ function seriesDetail(s){
    if(!ep){rows+=`<div class="ep-missing"><span class="ep-num" aria-hidden="true">${String(e).padStart(2,'0')}</span><span class="ep-code">${epLabel({s:sn,e},s.noSeason)}</span>Nicht gesehen und auf Pawchive nicht gefunden</div>`;continue}
    if(done.has(ep.p.id))continue;done.add(ep.p.id);
    if(ep.p.id!==target.id){rows+=episodeRow(ep.p,e,s.noSeason,s.name);if(s.jump&&ep.p.id===s.last.p.id)rows+=`<div class="ep-missing ep-search"><span class="ep-code">ab ${epLabel({s:s.last.s,e:s.last.e+1},s.noSeason)}</span><span>Die Folgen bis ${nextLabel} fehlen noch. ${searchNote(s)}</span></div>`;continue}
-   rows+=`<div class="ep-current" id="series-current"><span class="ep-current-label">${icon(s.next.p?'play':'check')}${s.next.p?'Als Nächstes · '+nextLabel:'Zuletzt gesehen · '+epLabel(s.last,s.noSeason)}</span>${episodeRow(ep.p,e,s.noSeason,s.name)}</div>`;
-   if(!s.next.p)rows+=`<div class="ep-missing ep-search"><span class="ep-code">${nextLabel}</span><span>Noch nicht auf Pawchive gefunden. ${searchNote(s)}</span></div>`;
+   const finale=seriesComplete(s);
+   rows+=`<div class="ep-current${finale?' is-finale':''}" id="series-current"><span class="ep-current-label">${icon(s.next.p?'play':'check')}${s.next.p?'Als Nächstes · '+nextLabel:(finale?'Finale · ':'Zuletzt gesehen · ')+epLabel(s.last,s.noSeason)}</span>${episodeRow(ep.p,e,s.noSeason,s.name)}</div>`;
+   if(!s.next.p&&!finale)rows+=`<div class="ep-missing ep-search"><span class="ep-code">${nextLabel}</span><span>Noch nicht auf Pawchive gefunden. ${searchNote(s)}</span></div>`;
   }
   const count=x.max-x.min+1,state=x.seen>=count?'done':sn===(s.next.p?s.next:s.last).s||x.seen?'active':'todo';
   main+=`<section class="season" id="season-${sn}"><h2 class="season-head" data-state="${state}"><span class="season-num" aria-hidden="true">${state==='done'?'✓':s.noSeason?'#':sn}</span><span class="season-info"><span>${s.noSeason?'Folgen':'Staffel '+sn}</span><small>${x.seen} von ${count} gesehen</small><i class="season-bar"><i style="width:${Math.round(x.seen/count*100)}%"></i></i></span></h2><div class="ep-list">${rows}</div></section>`;
