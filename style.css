@@ -547,3 +547,14 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 .menu-panel .menu-update .icon{color:#f5b83d}
 .more.has-update>summary{position:relative}
 .more.has-update>summary::after{content:'';position:absolute;top:.35rem;right:.35rem;width:.55rem;height:.55rem;border-radius:50%;background:#f5b83d;box-shadow:0 0 0 2px var(--bg)}
+/* Finished series: slowly circling gold frame, an occasional sheen over the poster, gold progress and badge. */
+@property --seen-spin{syntax:'<angle>';inherits:false;initial-value:0deg}
+.series-card.is-complete{position:relative;border-color:transparent;box-shadow:0 0 0 1px #f5c84c40,0 12px 34px #f5b83d24}
+.series-card.is-complete::before{content:'';position:absolute;inset:0;z-index:6;border-radius:inherit;padding:2px;background:conic-gradient(from var(--seen-spin),#f5b83d,#fff3c4 12%,#f5b83d 25%,#9a6212 50%,#f5b83d 75%,#fff3c4 88%,#f5b83d);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:seen-spin 6s linear infinite;pointer-events:none}
+.series-card.is-complete .series-cover::after{content:'';position:absolute;inset:0;z-index:4;background:linear-gradient(115deg,transparent 35%,#ffffff55 50%,transparent 65%);transform:translateX(-120%);animation:seen-sheen 6s ease-in-out infinite;pointer-events:none}
+.series-card.is-complete .cover-progress i{background:linear-gradient(90deg,#f5b83d,#ffe08a);box-shadow:0 0 10px #f5b83daa}
+.cover-next.cover-done{color:#1d1300;background:linear-gradient(90deg,#f5b83d,#ffd97a);font-weight:700}
+.cover-next.cover-done .icon{color:#1d1300}
+@keyframes seen-spin{to{--seen-spin:360deg}}
+@keyframes seen-sheen{0%,65%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+@media(prefers-reduced-motion:reduce){.series-card.is-complete::before,.series-card.is-complete .series-cover::after{animation:none}}

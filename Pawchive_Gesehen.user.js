@@ -2,7 +2,7 @@
 // @name         Pawchive – Gesehen markieren
 // @namespace    pawchive-seen-local
 // @icon         https://feeltheskill10-blip.github.io/Seen/icon-512.png
-// @version      2.17.0
+// @version      2.18.0
 // @downloadURL  https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @updateURL    https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @match        https://pawchive.pw/*
@@ -521,14 +521,15 @@ if(DASHBOARDS.includes(location.origin)){
     return found&&flat(found.name)&&(flat(found.name).includes(flat(query))||flat(query).includes(flat(found.name)))?found:null;
   }
   // IMDb episode IDs: show ID from TVmaze, episode IDs (season + number) from Wikidata. Cached for 14 days.
-  const IMDB='paw-imdb-v1:',IMDB_TTL=14*24*60*60*1000,imdbQueue=[],imdbBusy=new Set();let imdbRunning=false;
+  // Also whether the show has ended and its final episode (TVmaze), so the dashboard can mark finished series.
+  const IMDB='paw-imdb-v2:',IMDB_TTL=14*24*60*60*1000,imdbQueue=[],imdbBusy=new Set();let imdbRunning=false;
   function queueImdb(names){
     if(!Array.isArray(names))return;
     for(const raw of names.slice(0,20)){
       if(typeof raw!=='string')continue;const name=raw.trim().slice(0,80),key=name.toLowerCase();
       if(name.length<2||imdbBusy.has(key))continue;
       const cached=GM_getValue(IMDB+key,null);
-      if(cached&&Date.now()-(cached.at||0)<IMDB_TTL){send('IMDB',{name,show:cached.show,eps:cached.eps});continue}
+      if(cached&&Date.now()-(cached.at||0)<IMDB_TTL){send('IMDB',{name,show:cached.show,eps:cached.eps,ended:!!cached.ended,final:cached.final||null});continue}
       imdbBusy.add(key);imdbQueue.push({name,key});
     }
     runImdb();
@@ -544,8 +545,13 @@ if(DASHBOARDS.includes(location.origin)){
           const r=await tvmazeJSON('https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(q));
           for(const b of r?.results?.bindings||[]){const id=b.imdb?.value,s=parseInt(b.s?.value,10),e=parseInt(b.e?.value,10);if(/^tt\d+$/.test(id||'')&&s>0&&e>0)eps[s+'x'+e]=id}
         }catch(e){console.warn('Seen: Wikidata '+job.name,e.message)}
+        let ended=false,final=null;
+        if(found?.id)try{
+          ended=found.status==='Ended';
+          if(ended){const list=await tvmazeJSON(`https://api.tvmaze.com/shows/${encodeURIComponent(found.id)}/episodes`);const last=Array.isArray(list)?list.filter(x=>x?.season>0&&x?.number>0).pop():null;if(last)final={s:last.season,e:last.number}}
+        }catch(e){console.warn('Seen: TVmaze-Folgen '+job.name,e.message)}
         const full=Object.keys(eps).length>0;
-        GM_setValue(IMDB+job.key,{show,eps,at:full?Date.now():Date.now()-IMDB_TTL+24*60*60*1000});send('IMDB',{name:job.name,show,eps});
+        GM_setValue(IMDB+job.key,{show,eps,ended,final,at:full?Date.now():Date.now()-IMDB_TTL+24*60*60*1000});send('IMDB',{name:job.name,show,eps,ended,final});
       }catch(e){console.warn('Seen: IMDb '+job.name,e.message)}
       finally{imdbBusy.delete(job.key)}
       await new Promise(resolve=>setTimeout(resolve,400));
@@ -585,7 +591,7 @@ if(DASHBOARDS.includes(location.origin)){
       await new Promise(resolve=>setTimeout(resolve,400));
     }}finally{posterRunning=false}
   }
-  document.documentElement.setAttribute('data-paw-seen-bridge','2.17.0');
+  document.documentElement.setAttribute('data-paw-seen-bridge','2.18.0');
   document.addEventListener('paw-seen-request-v2',e=>{
     let m;try{if(typeof e.detail!=='string')return;m=JSON.parse(e.detail)}catch{return}
     if(m?.channel!==CHANNEL||m.direction!=='dashboard')return;
@@ -597,7 +603,7 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='GET_POSTERS'&&linked)queuePosters(m.names);
       if(m.type==='GET_IMDB'&&linked)queueImdb(m.names);
       if(m.type==='BACKUP_DONE'&&linked)GM_setValue(BACKUP_KEY,Date.now());
-      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.17.0'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
+      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.18.0'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
       if(m.type==='GET_FRAME_SETTINGS'){linked=true;publishFrameSettings(true,m.requestId)}
       if(m.type==='SET_FRAME_SETTINGS'&&linked){GM_setValue(FRAME_KEY,SeenFrames.normalize(m.settings));publishFrameSettings(true,m.requestId)}
       if(m.type==='ENRICH_IMAGES'&&linked){fillImages(true);fillCreators(true)}

@@ -30,7 +30,7 @@
     }
     if(m.type==='SEARCH_STATUS')window.dispatchEvent(new CustomEvent('seen-search-status',{detail:{creator:String(m.creator||''),name:String(m.name||''),state:String(m.state||''),hits:Number(m.hits)||0,at:Number(m.at)||0,message:String(m.message||'')}}));
     if(m.type==='POSTER'&&typeof m.name==='string'){wantedPosters.delete(m.name);window.dispatchEvent(new CustomEvent('seen-posters',{detail:{name:m.name,data:typeof m.data==='string'?m.data:null,show:String(m.show||''),error:m.error?String(m.error):''}}))}
-    if(m.type==='IMDB'&&typeof m.name==='string'){wantedImdb.delete(m.name);window.dispatchEvent(new CustomEvent('seen-imdb',{detail:{name:m.name,show:String(m.show||''),eps:m.eps}}))}
+    if(m.type==='IMDB'&&typeof m.name==='string'){wantedImdb.delete(m.name);window.dispatchEvent(new CustomEvent('seen-imdb',{detail:{name:m.name,show:String(m.show||''),eps:m.eps,ended:!!m.ended,final:m.final||null}}))}
     if(m.type==='DESCRIPTIONS'&&m.items&&typeof m.items==='object'){for(const id of Object.keys(m.items))wantedDescriptions.delete(id);window.dispatchEvent(new CustomEvent('seen-descriptions',{detail:m.items}))}
     if(m.type==='FEEDS'&&m.feeds&&typeof m.feeds==='object')window.dispatchEvent(new CustomEvent('seen-feeds',{detail:m.feeds}));
     if(m.type==='IMAGE_DATA'&&typeof m.url==='string'){wantedImages.delete(m.url);window.dispatchEvent(new CustomEvent('seen-image-data',{detail:{url:m.url,data:m.data}}))}
@@ -122,7 +122,7 @@
       connected=false;seeded=false;transport=null;
       state(document.documentElement.getAttribute('data-paw-seen-bridge')
         ? 'Auto-Sync: Verbindung wird erneut aufgebaut …'
-        : 'Auto-Sync: Skript 2.17.0 einrichten');
+        : 'Auto-Sync: Skript 2.18.0 einrichten');
       send('HELLO');
     }
     for(const [id,item] of pending){
@@ -133,7 +133,7 @@
     }
   }
   document.getElementById('refreshImages').addEventListener('click',()=>{
-    if(!connected){document.getElementById('imageStatus').textContent='Bitte zuerst Skript 2.17.0 aktivieren und beide Seiten neu laden.';return}
+    if(!connected){document.getElementById('imageStatus').textContent='Bitte zuerst Skript 2.18.0 aktivieren und beide Seiten neu laden.';return}
     document.getElementById('imageStatus').textContent='Bildabfrage wird gestartet …';
     send('ENRICH_IMAGES');
   });

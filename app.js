@@ -39,7 +39,7 @@ const hue=p=>{let h=0;for(const c of keyOf(p))h=(h*31+c.charCodeAt(0))>>>0;retur
 const PROXY_ONLY=/\.claudeusercontent\.com$/.test(location.hostname);
 const imgCache=new Map(),imgFailed=new Set(),imgPending=new Set(),imgQueue=new Set();let imgTimer=0,idb=null;
 const idbReady=new Promise(done=>{try{const r=indexedDB.open('seen-images',1);r.onupgradeneeded=()=>r.result.createObjectStore('img');r.onsuccess=()=>{idb=r.result;done()};r.onerror=()=>done()}catch{done()}});
-// One-time cleanup once script 2.17.0+ is connected: older scripts could relay images black (canvas blocked in Firefox).
+// One-time cleanup once script 2.18.0+ is connected: older scripts could relay images black (canvas blocked in Firefox).
 // Everything cached is dropped and fetched again through the fixed relay.
 window.addEventListener('seen-script-ready',e=>{
  const v=String(e.detail).split('.').map(Number);if(!(v[0]>2||v[0]===2&&(v[1]>16||v[1]===16&&(v[2]||0)>=3)))return;
@@ -199,8 +199,10 @@ function seriesCard(s){
  // Poster first: progress bar and next episode sit on the image, the creator stands out below it.
  const next=epLabel(s.next,s.noSeason),total=s.total,pct=total?Math.round(s.seenCount/total*100):0;
  const warn=s.jump?`Folgen vor ${next} fehlen`:s.gaps.length?`${s.gaps.length} ${s.gaps.length===1?'Lücke':'Lücken'}`:'';
- const label=`${s.name} von ${s.ref.creator}: ${s.seenCount} von ${total} Folgen gesehen, als Nächstes ${next}${s.next.p?'':' (noch nicht gefunden)'}${warn?', '+warn:''}`;
- return `<a class="series-card" href="#serie/${encodeURIComponent(s.key)}" style="--h:${hue(s.ref)}" aria-label="${esc(label)}" title="${esc(s.name)}"><span class="series-cover">${seriesCover(s)}<span class="cover-title">${esc(s.name)}</span><span class="cover-shade"></span>${warn?`<span class="cover-warn" title="${esc(warn)}"></span>`:''}<span class="cover-next${s.next.p?'':' is-missing'}">${icon('play')}${esc(next)}</span><span class="cover-progress"><i style="width:${pct}%"></i></span></span><span class="series-body"><span class="series-creator">${avatar(s.ref,'mini-avatar series-avatar')}<span>${esc(s.ref.creator)}</span></span></span></a>`;
+ const done=seriesComplete(s);
+ const label=done?`${s.name} von ${s.ref.creator}: komplett gesehen, alle ${total} Folgen`:`${s.name} von ${s.ref.creator}: ${s.seenCount} von ${total} Folgen gesehen, als Nächstes ${next}${s.next.p?'':' (noch nicht gefunden)'}${warn?', '+warn:''}`;
+ const chip=done?`<span class="cover-next cover-done">${icon('check')}Komplett gesehen</span>`:`<span class="cover-next${s.next.p?'':' is-missing'}">${icon('play')}${esc(next)}</span>`;
+ return `<a class="series-card${done?' is-complete':''}" href="#serie/${encodeURIComponent(s.key)}" style="--h:${hue(s.ref)}" aria-label="${esc(label)}" title="${esc(s.name)}"><span class="series-cover">${seriesCover(s)}<span class="cover-title">${esc(s.name)}</span><span class="cover-shade"></span>${warn&&!done?`<span class="cover-warn" title="${esc(warn)}"></span>`:''}${chip}<span class="cover-progress"><i style="width:${pct}%"></i></span></span><span class="series-body"><span class="series-creator">${avatar(s.ref,'mini-avatar series-avatar')}<span>${esc(s.ref.creator)}</span></span></span></a>`;
 }
 // Episode codes a post covers, e.g. "4×8 & 4×9".
 function postEpisodes(p,noSeason){const parsed=parseEpisodes(p.title);return parsed?parsed.eps.map(ep=>epLabel(ep,noSeason)).join(' & '):''}
@@ -251,7 +253,8 @@ try{imdbData=JSON.parse(localStorage.getItem(IMDB_KEY)||'{}')||{}}catch{imdbData
 function requestImdb(name){
  const k=posterKey(name),old=imdbData[k];
  // Full episode lists are kept 7 days; an empty answer is asked again after a day.
- if(demoMode||imdbAsked.has(k)||(old&&Date.now()-(old.at||0)<(Object.keys(old.eps||{}).length?7:1)*864e5))return;
+ // Entries from before 2.18 lack the "ended" info and are asked again.
+ if(demoMode||imdbAsked.has(k)||(old&&'ended' in old&&Date.now()-(old.at||0)<(Object.keys(old.eps||{}).length?7:1)*864e5))return;
  // Sent after startup: the first render runs before sync.js listens, so a direct event would be lost.
  imdbAsked.add(k);const ask=()=>window.dispatchEvent(new CustomEvent('seen-imdb-request',{detail:[name]}));
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ask,{once:true});else ask();
@@ -270,11 +273,18 @@ function imdbLinks(p,seriesName){
  return `<span class="ep-imdb">${one?link(eps[0],logo,'imdb-main'):logo+eps.map(ep=>link(ep,String(ep.e),'imdb-ep')).join('')}</span>`;
 }
 window.addEventListener('seen-imdb',e=>{
- const {name,show,eps}=e.detail||{};if(typeof name!=='string')return;const k=posterKey(name);
- imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},at:Date.now()};
+ const {name,show,eps,ended,final}=e.detail||{};if(typeof name!=='string')return;const k=posterKey(name),wasEnded=!!imdbData[k]?.ended;
+ const fin=final&&Number(final.s)>0&&Number(final.e)>0?{s:Number(final.s),e:Number(final.e)}:null;
+ imdbData[k]={show:String(show||''),eps:eps&&typeof eps==='object'?eps:{},ended:!!ended,final:fin,at:Date.now()};
  try{localStorage.setItem(IMDB_KEY,JSON.stringify(imdbData))}catch{}
  for(const a of document.querySelectorAll('a[data-imdb]'))if(a.dataset.imdb===k)a.href=imdbUrl(name,a.dataset.s,a.dataset.e);
+ if(!!ended!==wasEnded)scheduleRender();
 });
+// A series counts as finished when TVmaze says the show ended and you have seen everything up to its final episode.
+function seriesComplete(s){
+ const d=imdbData[posterKey(s.name)];
+ return !s.noSeason&&!!d?.ended&&!!d.final&&s.seenCount>=s.total&&!s.gaps.length&&epId(s.last.s,s.last.e)>=epId(d.final.s,d.final.e);
+}
 // Junk thumbnails (tiny, nearly colourless like a white blob, or black) are hidden so the poster art shows instead.
 // "Black" means really black (measured 0.000): dark but real movie thumbnails sit around 0.05-0.06 and must stay.
 function junkThumb(img){
@@ -421,7 +431,8 @@ function render(){
  const a=data(),home=view==='all'&&!activeCreator&&!activeSeries,series=buildSeries(a);
  seriesByPost=new Map();for(const s of series)for(const ep of s.eps.values())seriesByPost.set(ep.p.id,s.name);
  requestSeriesSearch(series);requestPosters(series);
- if(activeSeries){const s=series.find(x=>x.key===activeSeries);if(s)requestImdb(s.name)}
+ // IMDb links on the series page, and the "finished" state for every series card.
+ for(const s of series)requestImdb(s.name);
  $('#navCount').textContent=a.filter(p=>p.seen).length;$('#savedCount').textContent=a.filter(p=>p.saved).length;$('#seriesCount').textContent=series.length;
  $('#demoBanner').hidden=!demoMode;$('#demo').hidden=demoMode;
  $('#home').hidden=!home;$('#browse').hidden=home;
@@ -526,7 +537,7 @@ if(PROXY_ONLY){$('#backup').hidden=true;$('#backupSetup').hidden=true}
 $('#backup').onclick=()=>{const blob=new Blob([backupJSON()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=demoMode?'seen-demo.json':'seen-backup.json';a.click();backupDone();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 $('#addForm').onsubmit=e=>{e.preventDefault();if(demoMode){toast('Bitte zuerst die Demo schließen.');return}const f=new FormData(e.target),info=urlInfo(f.get('url'));if(!info){toast('Bitte eine gültige Pawchive-Post-URL verwenden.');return}const old=posts.find(p=>p.id===info.id),p={...old,...info,title:f.get('title').trim()||`Post ${info.postId}`,creator:f.get('creator').trim()||`Creator ${info.creatorId}`,seen:f.has('seen'),saved:!f.has('seen'),updatedAt:new Date().toISOString(),seenAt:f.has('seen')?new Date().toISOString():null};posts=posts.filter(x=>x.id!==p.id).concat(p);save();window.dispatchEvent(new CustomEvent('seen-local-change',{detail:p}));e.target.reset();$('#add').close();render();toast('Post gespeichert')};
 
-let script='';fetch('Pawchive_Gesehen.user.js?v=2.17.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
+let script='';fetch('Pawchive_Gesehen.user.js?v=2.18.0',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
 // Script update: the connected script's version (sent on READY) against the one published next to this dashboard.
 let connectedVersion='';
 const olderVersion=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++)if((x[i]||0)!==(y[i]||0))return (x[i]||0)<(y[i]||0);return false};
