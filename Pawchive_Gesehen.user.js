@@ -2,7 +2,7 @@
 // @name         Pawchive – Gesehen markieren
 // @namespace    pawchive-seen-local
 // @icon         https://feeltheskill10-blip.github.io/Seen/icon-512.png
-// @version      2.19.1
+// @version      2.19.2
 // @downloadURL  https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @updateURL    https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @match        https://pawchive.pw/*
@@ -599,7 +599,7 @@ if(DASHBOARDS.includes(location.origin)){
       await new Promise(resolve=>setTimeout(resolve,400));
     }}finally{posterRunning=false}
   }
-  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.1');
+  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.2');
   document.addEventListener('paw-seen-request-v2',e=>{
     let m;try{if(typeof e.detail!=='string')return;m=JSON.parse(e.detail)}catch{return}
     if(m?.channel!==CHANNEL||m.direction!=='dashboard')return;
@@ -611,7 +611,7 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='GET_POSTERS'&&linked)queuePosters(m.names);
       if(m.type==='GET_IMDB'&&linked)queueImdb(m.names);
       if(m.type==='BACKUP_DONE'&&linked)GM_setValue(BACKUP_KEY,Date.now());
-      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.1'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
+      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.2'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
       if(m.type==='GET_FRAME_SETTINGS'){linked=true;publishFrameSettings(true,m.requestId)}
       if(m.type==='SET_FRAME_SETTINGS'&&linked){GM_setValue(FRAME_KEY,SeenFrames.normalize(m.settings));publishFrameSettings(true,m.requestId)}
       if(m.type==='ENRICH_IMAGES'&&linked){fillImages(true);fillCreators(true)}
@@ -833,16 +833,16 @@ ${due?`<div class="backup" role="status"><span>${due} Deine Sammlung liegt nur i
 
 // ── Episode navigation on post pages ──────────────────
 // Same title parsing as the dashboard (app.js parseEpisodes): keep both in step.
-const EP_RE=/\bS(\d{1,2})\s*E(\d{1,3})(?:\s*(?:-|–|&|\+|,)\s*(?:S\d{1,2}\s*)?E?(\d{1,3}))?|(?<![\w.])(\d{1,2})\s*[x×]\s*(\d{1,3})(?!\d)|\bSeason\s*(\d{1,2})[\s,:-]*(?:Episode|Ep\.?)\s*(\d{1,3})|\b(?:Episode|Ep\.?)\s*(\d{1,3})\b/gi;
+const EP_RE=/\bS(\d{1,2})\s*E(\d{1,3})(?:\s*(?:-|–|&|\+|,)\s*(?:S\d{1,2}\s*)?E?(\d{1,3}))?|(?<![\w.])(\d{1,2})\s*[x×]\s*(\d{1,3})(?!\d)|\bSeason\s*(\d{1,2})[\s,:-]*(?:Episodes?|Eps?\.?)\s*(\d{1,3})(?:\s*(?:-|–|&|\+|,|and|und)\s*(\d{1,3}))?|\b(?:Episodes?|Ep\.?)\s*(\d{1,3})\b/gi;
 function parseEpisodes(title){
- const t=String(title||''),matches=[...t.matchAll(EP_RE)],strong=matches.filter(m=>m[1]||m[4]||m[6]),use=strong.length?strong:matches.filter(m=>m[8]).slice(0,1);
+ const t=String(title||''),matches=[...t.matchAll(EP_RE)],strong=matches.filter(m=>m[1]||m[4]||m[6]),use=strong.length?strong:matches.filter(m=>m[9]).slice(0,1);
  if(!use.length)return null;
  const eps=[];
  for(const m of use){
   if(m[1]){const s=+m[1],e=+m[2];eps.push({s,e});if(m[3]&&+m[3]>e&&+m[3]-e<=5)for(let x=e+1;x<=+m[3];x++)eps.push({s,e:x})}
   else if(m[4])eps.push({s:+m[4],e:+m[5]});
-  else if(m[6])eps.push({s:+m[6],e:+m[7]});
-  else eps.push({s:1,e:+m[8],noSeason:true});
+  else if(m[6]){const s=+m[6],e=+m[7];eps.push({s,e});if(m[8]&&+m[8]>e&&+m[8]-e<=5)for(let x=e+1;x<=+m[8];x++)eps.push({s,e:x})}
+  else eps.push({s:1,e:+m[9],noSeason:true});
  }
  let name=t.slice(0,use[0].index);
  for(let i=0;i<4;i++)name=name.replace(/[\s\-–—:|·,#(\[]+$/,'').replace(/\b(?:full\s+)?(?:reactions?|reacts?|season|staffel)$/i,'');

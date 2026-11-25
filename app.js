@@ -39,7 +39,7 @@ const hue=p=>{let h=0;for(const c of keyOf(p))h=(h*31+c.charCodeAt(0))>>>0;retur
 const PROXY_ONLY=/\.claudeusercontent\.com$/.test(location.hostname);
 const imgCache=new Map(),imgFailed=new Set(),imgPending=new Set(),imgQueue=new Set();let imgTimer=0,idb=null;
 const idbReady=new Promise(done=>{try{const r=indexedDB.open('seen-images',1);r.onupgradeneeded=()=>r.result.createObjectStore('img');r.onsuccess=()=>{idb=r.result;done()};r.onerror=()=>done()}catch{done()}});
-// One-time cleanup once script 2.19.1+ is connected: older scripts could relay images black (canvas blocked in Firefox).
+// One-time cleanup once script 2.19.2+ is connected: older scripts could relay images black (canvas blocked in Firefox).
 // Everything cached is dropped and fetched again through the fixed relay.
 window.addEventListener('seen-script-ready',e=>{
  const v=String(e.detail).split('.').map(Number);if(!(v[0]>2||v[0]===2&&(v[1]>16||v[1]===16&&(v[2]||0)>=3)))return;
@@ -100,16 +100,17 @@ function unseenFromCreator(a,creatorKey){const known=new Map(a.map(p=>[p.id,p]))
 function adoptFeedPost(id){const fp=feedPosts().find(p=>p.id===id);if(!fp)return null;try{const p=normalize({...fp,updatedAt:new Date().toISOString()});posts.push(p);return p}catch{return null}}
 
 // ── Series: detected from post titles such as "Show 9×11 & 9×12", "S02E05", "Season 1 Episode 3" ──
-const EP_RE=/\bS(\d{1,2})\s*E(\d{1,3})(?:\s*(?:-|–|&|\+|,)\s*(?:S\d{1,2}\s*)?E?(\d{1,3}))?|(?<![\w.])(\d{1,2})\s*[x×]\s*(\d{1,3})(?!\d)|\bSeason\s*(\d{1,2})[\s,:-]*(?:Episode|Ep\.?)\s*(\d{1,3})|\b(?:Episode|Ep\.?)\s*(\d{1,3})\b/gi;
+// "Season 1 Episodes 1+2" counts as 1×1 and 1×2 (plural and ranges with - – & + , and und).
+const EP_RE=/\bS(\d{1,2})\s*E(\d{1,3})(?:\s*(?:-|–|&|\+|,)\s*(?:S\d{1,2}\s*)?E?(\d{1,3}))?|(?<![\w.])(\d{1,2})\s*[x×]\s*(\d{1,3})(?!\d)|\bSeason\s*(\d{1,2})[\s,:-]*(?:Episodes?|Eps?\.?)\s*(\d{1,3})(?:\s*(?:-|–|&|\+|,|and|und)\s*(\d{1,3}))?|\b(?:Episodes?|Ep\.?)\s*(\d{1,3})\b/gi;
 function parseEpisodes(title){
- const t=String(title||''),matches=[...t.matchAll(EP_RE)],strong=matches.filter(m=>m[1]||m[4]||m[6]),use=strong.length?strong:matches.filter(m=>m[8]).slice(0,1);
+ const t=String(title||''),matches=[...t.matchAll(EP_RE)],strong=matches.filter(m=>m[1]||m[4]||m[6]),use=strong.length?strong:matches.filter(m=>m[9]).slice(0,1);
  if(!use.length)return null;
  const eps=[];
  for(const m of use){
   if(m[1]){const s=+m[1],e=+m[2];eps.push({s,e});if(m[3]&&+m[3]>e&&+m[3]-e<=5)for(let x=e+1;x<=+m[3];x++)eps.push({s,e:x})}
   else if(m[4])eps.push({s:+m[4],e:+m[5]});
-  else if(m[6])eps.push({s:+m[6],e:+m[7]});
-  else eps.push({s:1,e:+m[8],noSeason:true});
+  else if(m[6]){const s=+m[6],e=+m[7];eps.push({s,e});if(m[8]&&+m[8]>e&&+m[8]-e<=5)for(let x=e+1;x<=+m[8];x++)eps.push({s,e:x})}
+  else eps.push({s:1,e:+m[9],noSeason:true});
  }
  let name=t.slice(0,use[0].index);
  for(let i=0;i<4;i++)name=name.replace(/[\s\-–—:|·,#(\[]+$/,'').replace(/\b(?:full\s+)?(?:reactions?|reacts?|season|staffel)$/i,'');
@@ -581,7 +582,7 @@ if(PROXY_ONLY){$('#backup').hidden=true;$('#backupSetup').hidden=true}
 $('#backup').onclick=()=>{const blob=new Blob([backupJSON()],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=demoMode?'seen-demo.json':'seen-backup.json';a.click();backupDone();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 $('#addForm').onsubmit=e=>{e.preventDefault();if(demoMode){toast('Bitte zuerst die Demo schließen.');return}const f=new FormData(e.target),info=urlInfo(f.get('url'));if(!info){toast('Bitte eine gültige Pawchive-Post-URL verwenden.');return}const old=posts.find(p=>p.id===info.id),p={...old,...info,title:f.get('title').trim()||`Post ${info.postId}`,creator:f.get('creator').trim()||`Creator ${info.creatorId}`,seen:f.has('seen'),saved:!f.has('seen'),updatedAt:new Date().toISOString(),seenAt:f.has('seen')?new Date().toISOString():null};posts=posts.filter(x=>x.id!==p.id).concat(p);save();window.dispatchEvent(new CustomEvent('seen-local-change',{detail:p}));e.target.reset();$('#add').close();render();toast('Post gespeichert')};
 
-let script='';fetch('Pawchive_Gesehen.user.js?v=2.19.1',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
+let script='';fetch('Pawchive_Gesehen.user.js?v=2.19.2',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error();return r.text()}).then(s=>{script=s;$('#scriptCode').value=s;updateCheck()}).catch(()=>{$('#scriptCode').value='Skript konnte nicht geladen werden. Bitte Seite neu laden.'});$('#copyScript').onclick=async()=>{if(!script){toast('Das Skript lädt noch.');return}try{await navigator.clipboard.writeText(script);toast('Vollständiger Code kopiert')}catch{$('#scriptCode').closest('details').open=true;$('#scriptCode').select();toast('Bitte den markierten Code mit Strg+C kopieren.')}};window.addEventListener('storage',e=>{if(e.key===KEY){try{const value=JSON.parse(e.newValue||'[]');if(Array.isArray(value)){posts=value;render()}}catch{}}});
 // Script update: the connected script's version (sent on READY) against the one published next to this dashboard.
 let connectedVersion='';
 const olderVersion=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++)if((x[i]||0)!==(y[i]||0))return (x[i]||0)<(y[i]||0);return false};
