@@ -132,7 +132,9 @@ function buildSeries(a){
  }
  const rank=p=>p.seen?3:p.saved?2:1,out=[];
  for(const s of map.values()){
-  const seenPosts=s.entries.filter(x=>x.p.seen).map(x=>x.p);if(!seenPosts.length||s.entries.length<2)continue;
+  // One seen post with season and episode ("3×5") is enough (the series search then finds the rest); titles with
+  // only "Episode 5" need a second post, or every numbered podcast would become a series.
+  const seenPosts=s.entries.filter(x=>x.p.seen).map(x=>x.p);if(!seenPosts.length||(s.entries.length<2&&s.noSeason))continue;
   const eps=new Map();
   for(const x of s.entries)for(const ep of x.eps){const id=epId(ep.s,ep.e),cur=eps.get(id);if(!cur||rank(x.p)>rank(cur.p))eps.set(id,{s:ep.s,e:ep.e,p:x.p})}
   const seenIds=[...eps.values()].filter(x=>x.p.seen).map(x=>epId(x.s,x.e)).sort((x,y)=>x-y),lastId=seenIds[seenIds.length-1],last=eps.get(lastId);
@@ -516,7 +518,7 @@ function render(){
    const c=config.series;$('#pageEyebrow').textContent=c[1];$('#pageTitle').textContent=c[0];$('#pageDescription').textContent=c[2];
    $('#resultCount').textContent=series.length+(series.length===1?' Serie':' Serien');
    content.className=series.length?'series-grid':'';
-   content.innerHTML=series.length?series.map(seriesCard).join(''):`<div class="empty"><div class="empty-icon">${icon('list')}</div><h3>Noch keine Serie erkannt.</h3><p>Serien werden aus Titeln wie „Show 9×11“, „S02E05“ oder „Season 1 Episode 3“ erkannt. Sobald du zwei Folgen derselben Serie bei einem Creator hast, erscheint sie hier.</p></div>`;
+   content.innerHTML=series.length?series.map(seriesCard).join(''):`<div class="empty"><div class="empty-icon">${icon('list')}</div><h3>Noch keine Serie erkannt.</h3><p>Serien werden aus Titeln wie „Show 9×11“, „S02E05“ oder „Season 1 Episode 3“ erkannt. Sobald du eine Folge mit Staffel und Folgennummer gesehen hast, erscheint die Serie hier.</p></div>`;
   }
   sync();return;
  }
