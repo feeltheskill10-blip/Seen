@@ -319,7 +319,9 @@ function episodeRow(p,num,noSeason,seriesName=''){
  const label=p.saved?'Aus Merkliste entfernen':'Für später merken';
  // One episode: IMDb sits in the button row. Several: the IMDb group gets its own row below.
  const imdb=imdbLinks(p,seriesName),multi=imdb.includes('imdb-ep');
- return `<article class="ep-row ${p.seen?'is-seen':'is-open'}"><div class="ep-num" aria-hidden="true">${String(num).padStart(2,'0')}</div>
+ // A post with several episodes shows its range: "01", small "bis 04" below.
+ const upTo=Math.max(num,...(parseEpisodes(p.title)?.eps||[]).map(x=>x.e)),pad=n=>String(n).padStart(2,'0');
+ return `<article class="ep-row ${p.seen?'is-seen':'is-open'}"><div class="ep-num" aria-hidden="true">${pad(num)}${upTo>num?`<small>bis ${pad(upTo)}</small>`:''}</div>
 <div class="ep-thumb" style="--h:${hue(p)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(seriesName)}${image(p)}${p.url?`<a class="tile-link" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(p.title)} auf Pawchive öffnen"></a><span class="tile-play" aria-hidden="true">${icon('play')}</span>`:''}${p.seen?`<span class="ep-seen-badge">${icon('check')}</span>`:''}</div>
 <div class="ep-body"><h3 title="${esc(p.title)}">${esc(episodeTitle(p,seriesName))}</h3><div class="tile-meta"><span>${p.seen?'Gesehen '+date(p.seenAt)+(validSeenAt(p.seenAt)?' · '+historyTime(p.seenAt):''):p.isFeed?'Erschienen '+date(p.published):'Gemerkt '+date(p.updatedAt)}</span></div>
 <div class="ep-actions"><button class="${p.seen?'on':''}" data-action="seen" data-id="${esc(p.id)}" aria-label="${p.seen?'Als ungesehen markieren':'Als gesehen markieren'}: ${esc(p.title)}">${icon(p.seen?'check':'eye')}${p.seen?'Gesehen':'Gesehen markieren'}</button>${p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">Öffnen${icon('arrow')}</a>`:''}<button class="ep-save" data-action="saved" data-id="${esc(p.id)}" title="${label}" aria-label="${label}: ${esc(p.title)}" aria-pressed="${p.saved}">${icon('bookmark')}</button>${multi?'':imdb}</div>${multi?`<div class="ep-actions ep-imdb-row">${imdb}</div>`:''}</div>

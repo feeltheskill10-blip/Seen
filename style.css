@@ -641,3 +641,4 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 .hero.is-paused .hero-picker .pick-ring circle{animation-play-state:paused}
 @keyframes pick-fill{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
 @media(prefers-reduced-motion:reduce){.hero-picker button.is-filling .pick-ring circle{animation:none;stroke-dashoffset:0}}
+.ep-num small{display:block;margin-top:.3rem;font-size:.95rem;font-weight:700;letter-spacing:0;color:var(--muted)}
