@@ -613,3 +613,12 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 .hero-dots button.is-filling::after{will-change:transform}
 /* Rounded corners by overflow + radius again: with clip-path Firefox ran the zoom on the main thread (stutter). */
 .hero-poster,.hero-poster:hover{clip-path:none;overflow:hidden;border-radius:var(--radius-lg)}
+/* Slow motions (5 px/s for the dash, the zoom and float) snapped to whole pixels in Firefox and looked choppy.
+   A tiny rotation makes it render them sub-pixel; the dash also gets a soft leading edge. */
+.hero-poster{animation:hero-float2 7s ease-in-out infinite}
+.hero-poster .hero-image,.hero-poster .ep-art-fg{animation:hero-zoom2 18s ease-in-out infinite alternate}
+.hero-dots button.is-filling::after{animation-name:hero-fill2;background:linear-gradient(90deg,var(--seen) calc(100% - 6px),#5ee08f00)}
+@keyframes hero-float2{0%,100%{transform:translateY(0) rotate(.01deg)}50%{transform:translateY(-8px) rotate(.01deg)}}
+@keyframes hero-zoom2{from{transform:scale(1) rotate(.01deg)}to{transform:scale(1.08) rotate(.01deg)}}
+@keyframes hero-fill2{from{transform:scaleX(0) rotate(.01deg)}to{transform:scaleX(1) rotate(.01deg)}}
+@media(prefers-reduced-motion:reduce){.hero-poster,.hero-poster .hero-image,.hero-poster .ep-art-fg{animation:none}.hero-dots button.is-filling::after{animation:none;transform:none}}
