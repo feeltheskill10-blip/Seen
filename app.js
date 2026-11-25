@@ -240,7 +240,7 @@ function episodeTitle(p,seriesName,fallback){
  t=t.replace(EP_RE,' ')
   .replace(/\((?:patreon|fanbox|fantia|subscribestar|gumroad|discord|boosty|afdian)\)/gi,' ')
   .replace(/\([^)]*\breacts?\b[^)]*\)/gi,' ')
-  .replace(/\b(?:full\s+)?(?:reactions?|reacts?)\b|\bfull\b/gi,' ')
+  .replace(/\b(?:full\s+)?(?:reactions?|reacts?)\b|\b(?:full|unedited|uncut|edited|first\s+time\s+watching)\b/gi,' ')
   .replace(/\(\s*[-–—:|·,&+]*\s*\)/g,' ').replace(/\s+/g,' ')
   .replace(/^[\s\-–—:|·,&#+]+|[\s\-–—:|·,&#+]+$/g,'');
  return t.length>1?t:fallback;
