@@ -626,3 +626,18 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
    one-second steps instead of gliding. */
 .hero-poster,.hero-poster .hero-image,.hero-poster .ep-art-fg{animation:none;will-change:auto}
 .hero-dots button.is-filling::after{animation-timing-function:steps(9,end);background:var(--seen)}
+/* Header series picker: round posters, the active one gets a green ring that closes until the next series. */
+.hero-picker{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.5rem}
+.hero-picker button{position:relative;width:3.1rem;height:3.1rem;padding:0;border:0;border-radius:50%;background:none;cursor:pointer;opacity:.45;transition:opacity .25s,transform .25s var(--ease)}
+.hero-picker button:hover,.hero-picker button:focus-visible{opacity:.9;transform:translateY(-2px)}
+.hero-picker button[aria-selected=true]{opacity:1}
+.pick-img{position:absolute;inset:4px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:linear-gradient(135deg,hsl(var(--h) 42% 26%),hsl(calc(var(--h) + 50) 38% 12%))}
+.pick-img img{width:100%;height:100%;object-fit:cover}
+.pick-img i{font-style:normal;font-size:.72rem;font-weight:800;color:#ffffffb3}
+.pick-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+.pick-ring circle{fill:none;stroke:#ffffff26;stroke-width:2.5}
+.hero-picker button[aria-selected=true] .pick-ring circle{stroke:var(--seen);stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:100;filter:drop-shadow(0 0 4px #5ee08f88)}
+.hero-picker button.is-filling .pick-ring circle{animation:pick-fill 9s linear both;animation-delay:var(--hero-delay,0ms)}
+.hero.is-paused .hero-picker .pick-ring circle{animation-play-state:paused}
+@keyframes pick-fill{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){.hero-picker button.is-filling .pick-ring circle{animation:none;stroke-dashoffset:0}}

@@ -396,7 +396,7 @@ function showHero(){const a=data(),h=$('#hero');heroStart=performance.now();rend
 // Puts the filling dash at the clock's position: after a rebuild and when coming back to the tab.
 function syncHeroBar(restart=false){
  // Pausing only toggles the class (CSS pauses the running fill); a changed delay would make it jump.
- const h=$('#hero'),b=h.querySelector('.hero-dots [aria-selected=true]');h.classList.toggle('is-paused',heroPaused);if(!b||!restart)return;
+ const h=$('#hero'),b=h.querySelector('.hero-picker [aria-selected=true]');h.classList.toggle('is-paused',heroPaused);if(!b||!restart)return;
  b.style.setProperty('--hero-delay',-Math.round(heroElapsed())+'ms');b.classList.remove('is-filling');void b.offsetWidth;b.classList.add('is-filling');
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-hero-index]');if(b){heroIndex=+b.dataset.heroIndex;showHero()}});
@@ -417,7 +417,10 @@ function renderHero(a,series=[]){
   const p=cont.next.p,code=postEpisodes(p,cont.noSeason)||epLabel(cont.next,cont.noSeason);
   // Wide TVmaze background when known (not on Claude, which blocks outside images); else the blurred thumbnail.
   const wide=!PROXY_ONLY&&imdbData[posterKey(cont.name)]?.backdrop;
-  const dots=heroCount>1?`<div class="hero-dots" role="tablist" aria-label="Serien im Kopfbereich">${list.map((s,i)=>`<button role="tab" data-hero-index="${i}" aria-selected="${i===heroIndex}" aria-label="${esc(s.name)}" title="${esc(s.name)}"></button>`).join('')}</div>`:'';
+  // Series picker: round posters; a vector ring around the active one closes over the 9 s (drawn smoothly,
+  // unlike a thin bar that Firefox moved in whole-pixel steps).
+  const pick=(s,i)=>{const pk='poster:'+posterKey(s.name),data=imgCache.get(pk);return `<button role="tab" data-hero-index="${i}" aria-selected="${i===heroIndex}" aria-label="${esc(s.name)}" title="${esc(s.name)}" style="--h:${hue(s.ref)}"><span class="pick-img">${data?`<img src="${data}" data-orig="${esc(pk)}" alt="">`:`<i>${esc(s.name.slice(0,2).toUpperCase())}</i>`}</span><svg class="pick-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="20" pathLength="100"></circle></svg></button>`};
+  const dots=heroCount>1?`<div class="hero-picker" role="tablist" aria-label="Serien im Kopfbereich">${list.map(pick).join('')}</div>`:'';
   // Only a real title next to the code ("10×9 The Holiday Summation"), never "Folge 9" again.
   const title=episodeTitle(p,cont.name,'');
   const html=`<div class="hero-backdrop" style="--h:${hue(cont.ref)}">${wide?`<img class="hero-wide" src="${esc(wide)}" alt="" decoding="async">`:image(p,'thumbnail','hero-bg')}</div><div class="hero-inner"><div class="hero-copy"><span class="kicker"><span class="live-dot"></span>Als Nächstes · ${esc(code)}</span><h1>${esc(cont.name)}</h1><p class="hero-lead">${title?esc(title)+' · ':''}Zuletzt gesehen ${esc(epLabel(cont.last,cont.noSeason))} am ${date(cont.last.p.seenAt)}</p><div class="hero-creator">${avatar(cont.ref)}<a href="${creatorLink(cont.ref)}">${esc(cont.ref.creator)}</a><span class="service">${esc(cont.ref.service)}</span></div><div class="hero-actions">${p.url?`<a class="btn btn-light" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${icon('play')}Ansehen</a>`:''}<button class="btn btn-ghost" data-action="seen" data-id="${esc(p.id)}">${icon('check')}Gesehen</button><a class="btn btn-ghost" href="#serie/${encodeURIComponent(cont.key)}">Zur Serie</a></div>${chips}${dots}</div><${p.url?`a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(cont.name)} ${esc(code)} ansehen"`:'div'} class="hero-poster" style="--h:${hue(cont.ref)}"><span class="tile-initial">${esc(initials(p))}</span>${episodeArt(cont.name)}${image(p,'thumbnail','hero-image')}<span class="hero-play" aria-hidden="true">${icon('play')}</span><span class="hero-ep"><b>${esc(code)}</b>${title?`<span>${esc(title)}</span>`:''}</span></${p.url?'a':'div'}></div>`;
