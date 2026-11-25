@@ -1,15 +1,16 @@
 // ==UserScript==
 // @name         Pawchive – Gesehen markieren
 // @namespace    pawchive-seen-local
+// @description  Markiert gesehene Pawchive-Posts und synchronisiert sie mit dem seen.-Dashboard.
+// @author       feeltheskill10-blip
+// @license      MIT
+// @homepageURL  https://feeltheskill10-blip.github.io/Seen/
 // @icon         https://feeltheskill10-blip.github.io/Seen/icon-512.png
-// @version      2.19.2
+// @version      2.19.3
 // @downloadURL  https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @updateURL    https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @match        https://pawchive.pw/*
 // @match        https://www.pawchive.pw/*
-// @match        https://paw-seen-library-ogdd.luckyeft67.chatgpt.site/*
-// @match        https://paw-seen-library-ogdd.ogdd19.chatgpt.site/*
-// @match        https://8c182c4a-981c-4be0-909c-46be16ce5bc4.frame.claudeusercontent.com/*
 // @match        https://feeltheskill10-blip.github.io/Seen/*
 // @match        https://feeltheskill10-blip.github.io/seen/*
 // @grant        GM_xmlhttpRequest
@@ -260,9 +261,9 @@ const P='paw-seen-v1:',M='paw-meta-v2:',C='paw-creator-v1:';let busy=false,timer
 // Time of the last backup (download on Pawchive or export/copy in the dashboard) and a 7-day snooze for the reminder.
 const BACKUP_KEY='paw-backup-at',BACKUP_SNOOZE='paw-backup-snooze';
 function safeThumbnail(value){try{if(typeof value!=='string'||!value)return '';const u=new URL(value,'https://pawchive.pw');return u.protocol==='https:'&&!u.username&&!u.password?u.href:''}catch{return ''}}
-// Only these exact origins get the bridge; never widen to *.claudeusercontent.com (shared by all Claude artifacts).
+// Only this exact origin gets the bridge.
 // The GitHub Pages origin is shared by the account's sites; @match limits the script there to /Seen/.
-const DASHBOARDS=['https://paw-seen-library-ogdd.luckyeft67.chatgpt.site','https://paw-seen-library-ogdd.ogdd19.chatgpt.site','https://8c182c4a-981c-4be0-909c-46be16ce5bc4.frame.claudeusercontent.com','https://feeltheskill10-blip.github.io'];
+const DASHBOARDS=['https://feeltheskill10-blip.github.io'];
 function creatorFrom(doc,service,id,profilePage=false){
  const clean=v=>String(v||'').trim().replace(/\s+/g,' ').slice(0,100);
  let creator='',creatorAvatar='';
@@ -599,7 +600,7 @@ if(DASHBOARDS.includes(location.origin)){
       await new Promise(resolve=>setTimeout(resolve,400));
     }}finally{posterRunning=false}
   }
-  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.2');
+  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.3');
   document.addEventListener('paw-seen-request-v2',e=>{
     let m;try{if(typeof e.detail!=='string')return;m=JSON.parse(e.detail)}catch{return}
     if(m?.channel!==CHANNEL||m.direction!=='dashboard')return;
@@ -611,7 +612,7 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='GET_POSTERS'&&linked)queuePosters(m.names);
       if(m.type==='GET_IMDB'&&linked)queueImdb(m.names);
       if(m.type==='BACKUP_DONE'&&linked)GM_setValue(BACKUP_KEY,Date.now());
-      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.2'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
+      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.3'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
       if(m.type==='GET_FRAME_SETTINGS'){linked=true;publishFrameSettings(true,m.requestId)}
       if(m.type==='SET_FRAME_SETTINGS'&&linked){GM_setValue(FRAME_KEY,SeenFrames.normalize(m.settings));publishFrameSettings(true,m.requestId)}
       if(m.type==='ENRICH_IMAGES'&&linked){fillImages(true);fillCreators(true)}
