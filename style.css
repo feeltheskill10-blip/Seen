@@ -622,3 +622,7 @@ form .primary{justify-content:center;padding:.85rem;margin-top:.4rem}
 @keyframes hero-zoom2{from{transform:scale(1) rotate(.01deg)}to{transform:scale(1.08) rotate(.01deg)}}
 @keyframes hero-fill2{from{transform:scaleX(0) rotate(.01deg)}to{transform:scaleX(1) rotate(.01deg)}}
 @media(prefers-reduced-motion:reduce){.hero-poster,.hero-poster .hero-image,.hero-poster .ep-art-fg{animation:none}.hero-dots button.is-filling::after{animation:none;transform:none}}
+/* No slow motions at all (Firefox showed them choppy): the card stands still, and the dash fills in nine clear
+   one-second steps instead of gliding. */
+.hero-poster,.hero-poster .hero-image,.hero-poster .ep-art-fg{animation:none;will-change:auto}
+.hero-dots button.is-filling::after{animation-timing-function:steps(9,end);background:var(--seen)}
