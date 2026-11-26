@@ -122,7 +122,7 @@
       connected=false;seeded=false;transport=null;
       state(document.documentElement.getAttribute('data-paw-seen-bridge')
         ? 'Auto-Sync: Verbindung wird erneut aufgebaut …'
-        : 'Auto-Sync: Skript 2.19.3 einrichten');
+        : 'Auto-Sync: Skript 2.19.4 einrichten');
       send('HELLO');
     }
     for(const [id,item] of pending){
@@ -133,7 +133,7 @@
     }
   }
   document.getElementById('refreshImages').addEventListener('click',()=>{
-    if(!connected){document.getElementById('imageStatus').textContent='Bitte zuerst Skript 2.19.3 aktivieren und beide Seiten neu laden.';return}
+    if(!connected){document.getElementById('imageStatus').textContent='Bitte zuerst Skript 2.19.4 aktivieren und beide Seiten neu laden.';return}
     document.getElementById('imageStatus').textContent='Bildabfrage wird gestartet …';
     send('ENRICH_IMAGES');
   });

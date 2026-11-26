@@ -6,7 +6,7 @@
 // @license      MIT
 // @homepageURL  https://feeltheskill10-blip.github.io/Seen/
 // @icon         https://feeltheskill10-blip.github.io/Seen/icon-512.png
-// @version      2.19.3
+// @version      2.19.4
 // @downloadURL  https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @updateURL    https://gist.githubusercontent.com/feeltheskill10-blip/2b3bbeae125026fe5d7ead5dc2440737/raw/Pawchive_Gesehen.user.js
 // @match        https://pawchive.pw/*
@@ -600,7 +600,7 @@ if(DASHBOARDS.includes(location.origin)){
       await new Promise(resolve=>setTimeout(resolve,400));
     }}finally{posterRunning=false}
   }
-  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.3');
+  document.documentElement.setAttribute('data-paw-seen-bridge','2.19.4');
   document.addEventListener('paw-seen-request-v2',e=>{
     let m;try{if(typeof e.detail!=='string')return;m=JSON.parse(e.detail)}catch{return}
     if(m?.channel!==CHANNEL||m.direction!=='dashboard')return;
@@ -612,7 +612,7 @@ if(DASHBOARDS.includes(location.origin)){
       if(m.type==='GET_POSTERS'&&linked)queuePosters(m.names);
       if(m.type==='GET_IMDB'&&linked)queueImdb(m.names);
       if(m.type==='BACKUP_DONE'&&linked)GM_setValue(BACKUP_KEY,Date.now());
-      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.3'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
+      if(m.type==='HELLO'){linked=true;send('READY',{version:'2.19.4'});publish(true);publishFrameSettings(true);publishFeeds(true);fillImages();fillCreators();fillFeeds()}
       if(m.type==='GET_FRAME_SETTINGS'){linked=true;publishFrameSettings(true,m.requestId)}
       if(m.type==='SET_FRAME_SETTINGS'&&linked){GM_setValue(FRAME_KEY,SeenFrames.normalize(m.settings));publishFrameSettings(true,m.requestId)}
       if(m.type==='ENRICH_IMAGES'&&linked){fillImages(true);fillCreators(true)}
@@ -881,37 +881,32 @@ function episodeInfo(k){
  navCache={k,at:Date.now(),info};return info;
 }
 const postUrl=(info,x)=>`https://pawchive.pw/${info.service}/user/${info.creatorId}/post/${x.id.split('/')[2]}`;
-const navCss=`:host{all:initial;display:block;margin:14px 0!important;color-scheme:dark}
+const navCss=`:host{all:initial;display:inline-block;vertical-align:middle;color-scheme:dark}
 *{box-sizing:border-box}
-.nav{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 14px;background:#16161a;border:1px solid #ffffff1f;border-radius:14px;font:14px/1.4 Inter,"Segoe UI",system-ui,sans-serif;color:#f4f4f6}
-.brand{font-weight:800;font-size:15px;letter-spacing:-.03em}.brand b{color:var(--seen)}
-.series{flex:1 1 140px;min-width:0;font-weight:650;color:#a3a3ad;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:9px;border:1px solid #ffffff26;color:#f4f4f6;text-decoration:none;font-weight:650;font-size:13px;white-space:nowrap}
+.nav{display:inline-flex;flex-wrap:wrap;align-items:center;gap:8px;font:14px/1.4 Inter,"Segoe UI",system-ui,sans-serif;color:#f4f4f6}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;border:1px solid #ffffff26;color:#f4f4f6;text-decoration:none;font-weight:650;font-size:13px;white-space:nowrap}
 .btn:hover{background:#ffffff12}
 .btn.next{background:var(--seen);border-color:transparent;color:#06210f}.btn.next:hover{filter:brightness(1.08)}
 .btn.missing{color:#a3a3ad;border-style:dashed}
-.keys{flex-basis:100%;font-size:12px;color:#71717b}
-kbd{font:600 11px ui-monospace,Consolas,monospace;padding:1px 5px;border-radius:4px;border:1px solid #ffffff2e;color:#d4d4d8}
 :focus-visible{outline:2px solid var(--seen);outline-offset:2px}`;
-// Bar between the post header and its content: series name, previous / next episode, shortcut hint.
+// Previous / next episode, inline right after the "gesehen" button in the post's action row.
 function episodeNav(k){
  let host=document.getElementById('paw-epnav-host');
- const anchor=document.querySelector('.post__header'),info=k&&anchor?episodeInfo(k):null;
+ const anchor=document.getElementById('paw-seen-detail'),info=k&&anchor?episodeInfo(k):null;
  if(!info){host?.remove();return}
  const signature=JSON.stringify([k,info.prev?.id,info.next?.id]);
  if(host&&host.isConnected&&host.previousElementSibling===anchor&&host.dataset.sig===signature)return;
  if(!host){
   host=document.createElement('div');host.id='paw-epnav-host';host.attachShadow({mode:'open'});
-  // Like the creator bar: inline !important survives Pawchive's margin reset on section children.
-  for(const [p,v] of [['display','block'],['margin','14px 0'],['float','none'],['clear','both']])host.style.setProperty(p,v,'important');
+  // Inline !important survives Pawchive's margin reset on section children.
+  for(const [p,v] of [['display','inline-block'],['margin','0 0 0 24px'],['vertical-align','middle']])host.style.setProperty(p,v,'important');
  }
  if(host.previousElementSibling!==anchor)anchor.after(host);
  host.dataset.sig=signature;host.style.setProperty('--seen',getComputedStyle(document.documentElement).getPropertyValue('--paw-seen-color')||'#5ee08f');
  const codes=x=>escHtml(x.eps.map(epCode).join(' & ')),search=`https://pawchive.pw/${info.service}/user/${info.creatorId}?q=${encodeURIComponent(info.name)}`;
- host.shadowRoot.innerHTML=`<style>${navCss}</style><nav class="nav" aria-label="Folgen dieser Serie"><span class="brand">seen<b>.</b></span><span class="series" title="${escHtml(info.name)}">${escHtml(info.name)}</span>
+ host.shadowRoot.innerHTML=`<style>${navCss}</style><nav class="nav" aria-label="Folgen: ${escHtml(info.name)}">
 ${info.prev?`<a class="btn" href="${postUrl(info,info.prev)}" title="Vorherige Folge">◀ ${codes(info.prev)}</a>`:''}
-${info.next?`<a class="btn next" href="${postUrl(info,info.next)}" title="Nächste Folge (Taste N)">Nächste Folge: ${codes(info.next)} ▶</a>`:`<a class="btn missing" href="${search}" title="Auf Pawchive nach der Serie suchen">${escHtml(epCode(info.want))} noch nicht gefunden · Suchen</a>`}
-<span class="keys"><kbd>N</kbd> nächste Folge · <kbd>G</kbd> als gesehen markieren</span></nav>`;
+${info.next?`<a class="btn next" href="${postUrl(info,info.next)}" title="Nächste Folge (Taste N) · Taste G markiert als gesehen">Nächste: ${codes(info.next)} ▶</a>`:`<a class="btn missing" href="${search}" title="Auf Pawchive nach der Serie suchen">${escHtml(epCode(info.want))} noch nicht gefunden · Suchen</a>`}</nav>`;
 }
 // Shortcuts on post pages: N opens the next episode, G toggles "gesehen". Ignored while typing.
 addEventListener('keydown',e=>{
